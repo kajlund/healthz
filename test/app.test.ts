@@ -1,7 +1,18 @@
 import request from "supertest";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { app } from "../src/app.js";
+import { createApp } from "../src/app.js";
+import type { BodyMeasurementRepository } from "../src/body-measurements/repository.js";
+
+const repository: BodyMeasurementRepository = {
+  create: vi.fn(),
+  list: vi.fn(),
+  findById: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+};
+
+const app = createApp(repository);
 
 describe("HTTP application", () => {
   it("reports that it is healthy", async () => {
@@ -15,7 +26,9 @@ describe("HTTP application", () => {
     const response = await request(app).get("/unknown");
 
     expect(response.status).toBe(404);
-    expect(response.body).toEqual({ error: "Not Found" });
+    expect(response.body).toEqual({
+      error: { code: "NOT_FOUND", message: "Route not found" },
+    });
     expect(response.headers["content-type"]).toMatch(/json/);
   });
 });
