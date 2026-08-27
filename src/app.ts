@@ -16,6 +16,8 @@ export const createApp = (repository: BodyMeasurementRepository) => {
 
   app.use("/api/body-measurements", createBodyMeasurementsRouter(repository));
 
+  app.use(express.static("dist/public"));
+
   app.use((_request, response) => {
     response.status(404).json({
       error: { code: "NOT_FOUND", message: "Route not found" },

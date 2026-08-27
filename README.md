@@ -1,6 +1,6 @@
 # Healthz
 
-Backend for a personal health tracking application, built with Node.js, TypeScript, Express, PostgreSQL, and Drizzle ORM.
+A personal health tracking application built with Lit, TypeScript, Express, PostgreSQL, and Drizzle ORM.
 
 ## Requirements
 
@@ -15,13 +15,15 @@ Backend for a personal health tracking application, built with Node.js, TypeScri
 3. Apply the database migrations with `npm run db:migrate`.
 4. Run `npm run dev`.
 
-The API is available at `http://localhost:3000`; `GET /health` returns `{ "status": "ok" }`.
+Open the frontend at `http://localhost:5173`. Vite proxies API requests to Express, which runs on the configured `PORT` (3000 by default), so frontend code does not need an environment-specific API URL.
 
 ## Commands
 
-- `npm run dev` - run the API with automatic restarts
-- `npm run build` - compile TypeScript to `dist/`
-- `npm start` - run the compiled server
+- `npm run dev` - run the API and Vite frontend together
+- `npm run dev:api` - run only the API with automatic restarts
+- `npm run dev:web` - run only the Vite frontend
+- `npm run build` - build the API and frontend into `dist/`
+- `npm start` - serve the production API and built frontend
 - `npm test` - run tests
 - `npm run typecheck` - check TypeScript without emitting files
 - `npm run db:generate` - generate migrations after schema changes
@@ -56,6 +58,17 @@ Example request body for create and update:
   "notes": "Morning"
 }
 ```
+
+## Production
+
+Build both applications, then start Express:
+
+```sh
+npm run build
+npm start
+```
+
+Express serves the generated frontend from `dist/public` and continues to handle all `/api` routes.
 
 `notes` may be omitted or set to `null`. Validation, missing-resource, and date-conflict errors use this shape:
 
