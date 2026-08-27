@@ -80,3 +80,37 @@ Express serves the generated frontend from `dist/public` and continues to handle
   }
 }
 ```
+
+## Blood-pressure API
+
+Blood-pressure readings use ISO 8601 timestamps and allow multiple readings on the same day. Apply migration `0001_goofy_the_watchers.sql` with `npm run db:migrate` before using these endpoints.
+
+Create a reading:
+
+```sh
+curl -X POST http://localhost:3000/api/blood-pressure-readings \
+  -H "Content-Type: application/json" \
+  -d '{"measuredAt":"2026-08-27T18:30:00.000Z","systolic":122,"diastolic":78,"pulse":64,"notes":"After dinner"}'
+```
+
+Available endpoints:
+
+- `POST /api/blood-pressure-readings` - create a reading
+- `GET /api/blood-pressure-readings` - list readings, newest first
+- `GET /api/blood-pressure-readings/:id` - get one reading
+- `PUT /api/blood-pressure-readings/:id` - replace a reading
+- `DELETE /api/blood-pressure-readings/:id` - delete a reading
+
+Example request body for create and update:
+
+```json
+{
+  "measuredAt": "2026-08-27T18:30:00.000Z",
+  "systolic": 122,
+  "diastolic": 78,
+  "pulse": 64,
+  "notes": "After dinner"
+}
+```
+
+`pulse` and `notes` may be omitted or set to `null`. Systolic pressure must be greater than diastolic pressure.

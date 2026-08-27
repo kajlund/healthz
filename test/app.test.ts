@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createApp } from "../src/app.js";
 import type { BodyMeasurementRepository } from "../src/body-measurements/repository.js";
+import type { BloodPressureReadingRepository } from "../src/blood-pressure-readings/repository.js";
 
 const repository: BodyMeasurementRepository = {
   create: vi.fn(),
@@ -12,7 +13,15 @@ const repository: BodyMeasurementRepository = {
   delete: vi.fn(),
 };
 
-const app = createApp(repository);
+const bloodPressureRepository: BloodPressureReadingRepository = {
+  create: vi.fn(),
+  list: vi.fn(),
+  findById: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+};
+
+const app = createApp(repository, bloodPressureRepository);
 
 describe("HTTP application", () => {
   it("reports that it is healthy", async () => {

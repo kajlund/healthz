@@ -49,3 +49,38 @@ export const bodyMeasurementsApi = {
   delete: (id: string) =>
     request<void>(`/api/body-measurements/${id}`, { method: "DELETE" }),
 };
+
+export interface BloodPressureReading {
+  id: string;
+  measuredAt: string;
+  systolic: number;
+  diastolic: number;
+  pulse: number | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BloodPressureReadingInput {
+  measuredAt: string;
+  systolic: number;
+  diastolic: number;
+  pulse?: number | null;
+  notes?: string | null;
+}
+
+export const bloodPressureReadingsApi = {
+  list: () => request<BloodPressureReading[]>("/api/blood-pressure-readings"),
+  create: (input: BloodPressureReadingInput) =>
+    request<BloodPressureReading>("/api/blood-pressure-readings", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  update: (id: string, input: BloodPressureReadingInput) =>
+    request<BloodPressureReading>(`/api/blood-pressure-readings/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+  delete: (id: string) =>
+    request<void>(`/api/blood-pressure-readings/${id}`, { method: "DELETE" }),
+};

@@ -8,6 +8,13 @@
       "when": 1787835442598,
       "tag": "0000_shocking_overlord",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787851207040,
+      "tag": "0001_goofy_the_watchers",
+      "breakpoints": true
     }
   ]
 }

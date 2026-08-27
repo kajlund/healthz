@@ -3,9 +3,14 @@ import { ZodError } from "zod";
 
 import type { BodyMeasurementRepository } from "./body-measurements/repository.js";
 import { createBodyMeasurementsRouter } from "./body-measurements/router.js";
+import type { BloodPressureReadingRepository } from "./blood-pressure-readings/repository.js";
+import { createBloodPressureReadingsRouter } from "./blood-pressure-readings/router.js";
 import { AppError, BodyMeasurementConflictError } from "./errors.js";
 
-export const createApp = (repository: BodyMeasurementRepository) => {
+export const createApp = (
+  bodyMeasurementRepository: BodyMeasurementRepository,
+  bloodPressureReadingRepository: BloodPressureReadingRepository,
+) => {
   const app = express();
 
   app.use(express.json());
@@ -14,7 +19,11 @@ export const createApp = (repository: BodyMeasurementRepository) => {
     response.json({ status: "ok" });
   });
 
-  app.use("/api/body-measurements", createBodyMeasurementsRouter(repository));
+  app.use("/api/body-measurements", createBodyMeasurementsRouter(bodyMeasurementRepository));
+  app.use(
+    "/api/blood-pressure-readings",
+    createBloodPressureReadingsRouter(bloodPressureReadingRepository),
+  );
 
   app.use(express.static("dist/public"));
 

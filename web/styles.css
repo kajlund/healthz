@@ -34,6 +34,11 @@ button:disabled { cursor: wait; opacity: .62; }
 .brand span { width: 34px; height: 34px; display: grid; place-items: center; color: white; background: var(--accent); border-radius: 10px 10px 10px 3px; font-family: Georgia, serif; font-size: 21px; }
 .header-meta { color: var(--muted); display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .status-dot { width: 7px; height: 7px; background: #4fa176; border-radius: 50%; box-shadow: 0 0 0 4px #e2efe6; }
+.site-nav { align-self: stretch; display: flex; align-items: stretch; gap: 24px; }
+.site-nav button { position: relative; padding: 0 2px; border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
+.site-nav button::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: transparent; }
+.site-nav button.active { color: var(--accent); }
+.site-nav button.active::after { background: var(--accent); }
 
 main { width: min(1240px, calc(100% - 48px)); margin: 0 auto; padding: 60px 0 80px; }
 .page-heading { display: flex; align-items: end; justify-content: space-between; margin-bottom: 34px; }
@@ -68,6 +73,10 @@ h2 { margin: 5px 0 0; font-family: Georgia, serif; font-size: 25px; font-weight:
 .date-cell strong { font-size: 14px; }
 .weight-cell strong { font-family: Georgia, serif; font-size: 21px; font-weight: 500; }
 .weight-cell small { color: var(--muted); font-family: inherit; font-size: 13px; }
+.blood-pressure-grid { grid-template-columns: 1.25fr 1fr .65fr 1.2fr auto; }
+.pressure-cell strong { font-family: Georgia, serif; font-size: 20px; font-weight: 500; white-space: nowrap; }
+.pressure-cell small { color: var(--muted); font-family: inherit; font-size: 11px; }
+.pulse-cell { color: #4e5b52; font-size: 13px; white-space: nowrap; }
 .notes-cell { min-width: 0; overflow: hidden; color: #4e5b52; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .muted { color: #9aa39c; }
 .actions { display: flex; justify-content: end; gap: 4px; }
@@ -95,6 +104,7 @@ input:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px
 .weight-input { position: relative; }
 .weight-input input { padding-right: 42px; }
 .weight-input span { position: absolute; right: 12px; top: 13px; color: var(--muted); font-size: 12px; font-weight: 500; }
+.vitals-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .primary-button { min-height: 46px; margin-top: 3px; border: 0; border-radius: 9px; background: var(--accent); color: white; font-size: 13px; font-weight: 800; box-shadow: 0 8px 18px rgba(29, 114, 80, .18); }
 .primary-button:hover { background: var(--accent-dark); }
 .cancel-button { padding: 3px; }
@@ -103,13 +113,18 @@ footer { width: min(1240px, calc(100% - 48px)); margin: 0 auto; padding: 22px 0 
 footer span:first-child { color: var(--ink); font-weight: 800; }
 
 @media (max-width: 900px) {
+  .site-header { padding-inline: 24px; }
+  .header-meta { display: none; }
   .workspace { grid-template-columns: 1fr; }
   .entry-card { position: static; grid-row: 1; }
 }
 
 @media (max-width: 640px) {
   .site-header { height: 64px; padding: 0 18px; }
-  .header-meta { font-size: 0; }
+  .brand { font-size: 0; }
+  .brand span { width: 32px; height: 32px; }
+  .site-nav { gap: 15px; }
+  .site-nav button { font-size: 11px; }
   main { width: min(100% - 28px, 1240px); padding: 40px 0 60px; }
   .section-index { display: none; }
   .page-heading { margin-bottom: 25px; }
@@ -124,7 +139,12 @@ footer span:first-child { color: var(--ink); font-weight: 800; }
   .card-heading { padding: 21px 20px; }
   .list-head { display: none; }
   .measurement-row { grid-template-columns: 1fr auto; gap: 13px; padding: 18px 20px; }
+  .measurement-row.blood-pressure-grid { grid-template-columns: 1fr 1fr; }
   .weight-cell { text-align: right; }
+  .pressure-cell { text-align: right; }
+  .blood-pressure-grid .pulse-cell { grid-column: 1; }
+  .blood-pressure-grid .notes-cell { grid-column: 2; text-align: right; }
+  .blood-pressure-grid .actions { grid-column: 1 / -1; }
   .notes-cell { grid-column: 1 / -1; }
   .actions { grid-column: 1 / -1; justify-content: flex-start; margin-left: -8px; }
   .mobile-label { display: block; margin-bottom: 4px; color: #919b93; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
