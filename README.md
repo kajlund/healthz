@@ -177,3 +177,31 @@ Example request body for create and update:
 ```
 
 All measurements are optional individually and remain `null` when absent; at least one must be supplied. `usageMinutes` is limited to 1,440, `eventsPerHour` supports two decimal places, and `totalScore` is limited to 0–100. The fixed-precision database value for `eventsPerHour` is returned by the API as a JSON number.
+
+## Monthly historical summaries
+
+Monthly Sleep and PAP summaries preserve user-entered source data for historical periods where daily records are unavailable. They are not calculated from daily records and do not create, replace, merge with, or delete daily records. Both kinds may coexist for the same month. When reporting is added later, reports will prefer available daily records and use a monthly summary only as fallback; that selection logic is not implemented yet.
+
+The API exposes `summaryMonth` as `YYYY-MM`. PostgreSQL stores it as the first day of that month—for example, `2025-03` is stored as `2025-03-01`. Only one summary of each type may exist per month. Apply migration `0004_rare_amazoness.sql` with `npm run db:migrate` before using these endpoints.
+
+Monthly Sleep endpoints:
+
+- `POST /api/monthly-sleep-summaries`
+- `GET /api/monthly-sleep-summaries` - newest month first
+- `GET /api/monthly-sleep-summaries/:id`
+- `PUT /api/monthly-sleep-summaries/:id`
+- `DELETE /api/monthly-sleep-summaries/:id`
+
+Monthly Sleep request fields are `summaryMonth`, `averageTotalSleepMinutes`, `averageAwakeMinutes`, `averageLightMinutes`, `averageDeepMinutes`, `averageRemMinutes`, `averageSleepScore`, `daysRecorded`, `source`, and `notes`. Durations are average daily minutes; the score supports two decimal places.
+
+Monthly PAP endpoints:
+
+- `POST /api/monthly-pap-summaries`
+- `GET /api/monthly-pap-summaries` - newest month first
+- `GET /api/monthly-pap-summaries/:id`
+- `PUT /api/monthly-pap-summaries/:id`
+- `DELETE /api/monthly-pap-summaries/:id`
+
+Monthly PAP request fields are `summaryMonth`, `averageUsageMinutes`, `averageEventsPerHour`, `averageMaskSealScore`, `averageMaskOnOffCount`, `averageTotalScore`, `daysRecorded`, `source`, and `notes`. Decimal averages support two decimal places and are returned as JSON numbers.
+
+For either summary type, at least one average measurement is required. Missing averages remain `null`. `daysRecorded`, when supplied, must be positive and cannot exceed the actual number of days in the selected month, including leap-year February.

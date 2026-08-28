@@ -5,7 +5,11 @@ import type { BodyMeasurementRepository } from "./body-measurements/repository.j
 import { createBodyMeasurementsRouter } from "./body-measurements/router.js";
 import type { BloodPressureReadingRepository } from "./blood-pressure-readings/repository.js";
 import { createBloodPressureReadingsRouter } from "./blood-pressure-readings/router.js";
-import { AppError, BodyMeasurementConflictError, PapRecordConflictError, SleepRecordConflictError } from "./errors.js";
+import { AppError, BodyMeasurementConflictError, MonthlyPapSummaryConflictError, MonthlySleepSummaryConflictError, PapRecordConflictError, SleepRecordConflictError } from "./errors.js";
+import type { MonthlySleepSummaryRepository } from "./monthly-sleep-summaries/repository.js";
+import { createMonthlySleepSummariesRouter } from "./monthly-sleep-summaries/router.js";
+import type { MonthlyPapSummaryRepository } from "./monthly-pap-summaries/repository.js";
+import { createMonthlyPapSummariesRouter } from "./monthly-pap-summaries/router.js";
 import type { PapRecordRepository } from "./pap-records/repository.js";
 import { createPapRecordsRouter } from "./pap-records/router.js";
 import type { SleepRecordRepository } from "./sleep-records/repository.js";
@@ -16,6 +20,8 @@ export const createApp = (
   bloodPressureReadingRepository: BloodPressureReadingRepository,
   sleepRecordRepository: SleepRecordRepository,
   papRecordRepository: PapRecordRepository,
+  monthlySleepSummaryRepository?: MonthlySleepSummaryRepository,
+  monthlyPapSummaryRepository?: MonthlyPapSummaryRepository,
 ) => {
   const app = express();
 
@@ -32,6 +38,8 @@ export const createApp = (
   );
   app.use("/api/sleep-records", createSleepRecordsRouter(sleepRecordRepository));
   app.use("/api/pap-records", createPapRecordsRouter(papRecordRepository));
+  if (monthlySleepSummaryRepository) app.use("/api/monthly-sleep-summaries", createMonthlySleepSummariesRouter(monthlySleepSummaryRepository));
+  if (monthlyPapSummaryRepository) app.use("/api/monthly-pap-summaries", createMonthlyPapSummariesRouter(monthlyPapSummaryRepository));
 
   app.use(express.static("dist/public"));
 
@@ -60,7 +68,7 @@ export const createApp = (
       return;
     }
 
-    if (error instanceof BodyMeasurementConflictError || error instanceof SleepRecordConflictError || error instanceof PapRecordConflictError) {
+    if (error instanceof BodyMeasurementConflictError || error instanceof SleepRecordConflictError || error instanceof PapRecordConflictError || error instanceof MonthlySleepSummaryConflictError || error instanceof MonthlyPapSummaryConflictError) {
       response.status(409).json({
         error: { code: "CONFLICT", message: error.message },
       });

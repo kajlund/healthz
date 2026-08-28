@@ -34,8 +34,8 @@ button:disabled { cursor: wait; opacity: .62; }
 .brand span { width: 34px; height: 34px; display: grid; place-items: center; color: white; background: var(--accent); border-radius: 10px 10px 10px 3px; font-family: Georgia, serif; font-size: 21px; }
 .header-meta { color: var(--muted); display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .status-dot { width: 7px; height: 7px; background: #4fa176; border-radius: 50%; box-shadow: 0 0 0 4px #e2efe6; }
-.site-nav { align-self: stretch; display: flex; align-items: stretch; gap: 24px; }
-.site-nav button { position: relative; padding: 0 2px; border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; }
+.site-nav { min-width: 0; align-self: stretch; display: flex; align-items: stretch; gap: 24px; overflow-x: auto; }
+.site-nav button { position: relative; padding: 0 2px; border: 0; background: transparent; color: var(--muted); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .site-nav button::after { content: ""; position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; background: transparent; }
 .site-nav button.active { color: var(--accent); }
 .site-nav button.active::after { background: var(--accent); }
@@ -84,6 +84,14 @@ h2 { margin: 5px 0 0; font-family: Georgia, serif; font-size: 25px; font-weight:
 .pap-grid { grid-template-columns: 1fr 1.25fr 1.2fr .7fr auto; }
 .pap-metrics { display: grid; gap: 4px; color: #4e5b52; font-size: 12px; }
 .pap-metrics strong { color: var(--ink); font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
+.monthly-workspace { grid-template-columns: minmax(0, 1fr) 390px; }
+.summary-tabs { display: flex; gap: 8px; margin-bottom: 22px; }
+.summary-tabs button { padding: 10px 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); color: var(--muted); font-weight: 700; }
+.summary-tabs button.active { border-color: var(--accent); background: var(--soft); color: var(--accent); }
+.monthly-row { grid-template-columns: 1fr 2fr .7fr auto; }
+.monthly-row .date-cell { display: grid; gap: 5px; }
+.monthly-row .date-cell small, .monthly-values, .monthly-row .source-cell { color: var(--muted); font-size: 12px; }
+.monthly-values { display: flex; flex-wrap: wrap; gap: 5px 14px; }
 .pressure-cell strong { font-family: Georgia, serif; font-size: 20px; font-weight: 500; white-space: nowrap; }
 .pressure-cell small { color: var(--muted); font-family: inherit; font-size: 11px; }
 .pulse-cell { color: #4e5b52; font-size: 13px; white-space: nowrap; }
@@ -139,6 +147,8 @@ footer span:first-child { color: var(--ink); font-weight: 800; }
   .brand { font-size: 0; }
   .brand span { width: 32px; height: 32px; }
   .site-nav { gap: 15px; }
+  .site-nav { gap: 9px; }
+  .site-nav button { font-size: 10px; }
   .site-nav button { font-size: 11px; }
   main { width: min(100% - 28px, 1240px); padding: 40px 0 60px; }
   .section-index { display: none; }
@@ -157,6 +167,9 @@ footer span:first-child { color: var(--ink); font-weight: 800; }
   .measurement-row.blood-pressure-grid { grid-template-columns: 1fr 1fr; }
   .measurement-row.sleep-grid { grid-template-columns: 1fr 1fr; }
   .measurement-row.pap-grid { grid-template-columns: 1fr 1fr; }
+  .measurement-row.monthly-row { grid-template-columns: 1fr auto; }
+  .monthly-row .monthly-values { grid-column: 1 / -1; }
+  .monthly-row .actions { grid-column: 1 / -1; }
   .pap-grid .pap-metrics:nth-child(3) { grid-column: 1 / -1; }
   .pap-grid .source-cell { text-align: right; }
   .pap-grid .actions { grid-column: 1 / -1; }

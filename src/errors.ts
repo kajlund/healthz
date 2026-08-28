@@ -26,3 +26,11 @@ export class PapRecordConflictError extends Error {
     super("A PAP record already exists for this therapy date");
   }
 }
+
+export class MonthlySleepSummaryConflictError extends Error {
+  constructor() { super("A monthly sleep summary already exists for this month"); }
+}
+
+export class MonthlyPapSummaryConflictError extends Error {
+  constructor() { super("A monthly PAP summary already exists for this month"); }
+}

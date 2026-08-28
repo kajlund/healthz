@@ -5,9 +5,11 @@ import { env } from "./config/env.js";
 import { pool } from "./db/index.js";
 import { logger } from "./logger.js";
 import { papRecordRepository } from "./pap-records/repository.js";
+import { monthlySleepSummaryRepository } from "./monthly-sleep-summaries/repository.js";
+import { monthlyPapSummaryRepository } from "./monthly-pap-summaries/repository.js";
 import { sleepRecordRepository } from "./sleep-records/repository.js";
 
-const app = createApp(bodyMeasurementRepository, bloodPressureReadingRepository, sleepRecordRepository, papRecordRepository);
+const app = createApp(bodyMeasurementRepository, bloodPressureReadingRepository, sleepRecordRepository, papRecordRepository, monthlySleepSummaryRepository, monthlyPapSummaryRepository);
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, environment: env.NODE_ENV }, "Healthz server started");
