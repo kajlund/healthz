@@ -7,6 +7,23 @@ import "./pap-page.js";
 import "./monthly-summaries-page.js";
 import "./styles.css";
 
+type Route = "weight" | "blood-pressure" | "sleep" | "pap" | "summary-sleep" | "summary-pap";
+type Category = "measurements" | "summaries";
+
+const navigation: Array<{ category: Category; label: string; items: Array<{ route: Route; label: string; hash: string }> }> = [
+  { category: "measurements", label: "Measurements", items: [
+    { route: "weight", label: "Weight", hash: "#/measurements/weight" },
+    { route: "blood-pressure", label: "Blood pressure", hash: "#/measurements/blood-pressure" },
+    { route: "sleep", label: "Sleep", hash: "#/measurements/sleep" },
+    { route: "pap", label: "PAP", hash: "#/measurements/pap" },
+  ] },
+  { category: "summaries", label: "Summaries", items: [
+    { route: "summary-sleep", label: "Monthly Sleep", hash: "#/summaries/sleep" },
+    { route: "summary-pap", label: "Monthly PAP", hash: "#/summaries/pap" },
+  ] },
+];
+const routeFromHash = (): Route => navigation.flatMap(({ items }) => items).find(({ hash }) => hash === window.location.hash)?.route ?? "weight";
+
 const today = () => {
   const now = new Date();
   const offset = now.getTimezoneOffset() * 60_000;
@@ -24,7 +41,8 @@ class HealthzApp extends LitElement {
     measuredOn: { state: true },
     weightKg: { state: true },
     notes: { state: true },
-    section: { state: true },
+    route: { state: true },
+    mobileMenuOpen: { state: true },
   };
 
   declare private measurements: BodyMeasurement[];
@@ -36,7 +54,8 @@ class HealthzApp extends LitElement {
   declare private measuredOn: string;
   declare private weightKg: string;
   declare private notes: string;
-  declare private section: "body-weight" | "blood-pressure" | "sleep" | "pap" | "monthly";
+  declare private route: Route;
+  declare private mobileMenuOpen: boolean;
 
   constructor() {
     super();
@@ -49,7 +68,8 @@ class HealthzApp extends LitElement {
     this.measuredOn = today();
     this.weightKg = "";
     this.notes = "";
-    this.section = "body-weight";
+    this.route = routeFromHash();
+    this.mobileMenuOpen = false;
   }
 
   protected createRenderRoot() {
@@ -58,8 +78,29 @@ class HealthzApp extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    window.addEventListener("hashchange", this.handleRouteChange);
+    document.addEventListener("keydown", this.handleKeyDown);
+    document.addEventListener("pointerdown", this.handleOutsidePointer);
     void this.loadMeasurements();
   }
+
+  disconnectedCallback() {
+    window.removeEventListener("hashchange", this.handleRouteChange);
+    document.removeEventListener("keydown", this.handleKeyDown);
+    document.removeEventListener("pointerdown", this.handleOutsidePointer);
+    super.disconnectedCallback();
+  }
+
+  private handleRouteChange = () => { this.route = routeFromHash(); this.mobileMenuOpen = false; };
+  private handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && this.mobileMenuOpen) { this.mobileMenuOpen = false; this.querySelector<HTMLButtonElement>(".menu-toggle")?.focus(); } };
+  private handleOutsidePointer = (event: PointerEvent) => { if (this.mobileMenuOpen && !this.querySelector(".navigation-shell")?.contains(event.target as Node)) this.mobileMenuOpen = false; };
+  private get category(): Category { return this.route.startsWith("summary-") ? "summaries" : "measurements"; }
+  private destination(route: Route) { return navigation.flatMap(({ items }) => items).find((item) => item.route === route)!; }
+  private categoryDestination(category: Category) { if (category === this.category) return this.destination(this.route).hash; return navigation.find((item) => item.category === category)!.items[0]!.hash; }
+  private renderNavigationItems(category: Category, mobile = false) {
+    return navigation.find((item) => item.category === category)!.items.map((item) => html`<a href=${item.hash} aria-current=${this.route === item.route ? "page" : nothing} class=${this.route === item.route ? "active" : ""} @click=${() => { if (mobile) this.mobileMenuOpen = false; }}>${item.label}</a>`);
+  }
+  private showSummaryTab(event: CustomEvent<{ tab: "sleep" | "pap" }>) { window.location.hash = event.detail.tab === "sleep" ? "#/summaries/sleep" : "#/summaries/pap"; }
 
   private async loadMeasurements() {
     this.loading = true;
@@ -221,17 +262,17 @@ class HealthzApp extends LitElement {
     return html`
       <header class="site-header">
         <a class="brand" href="/" aria-label="Healthz home"><span>H</span>Healthz</a>
-        <nav class="site-nav" aria-label="Health sections">
-          <button class=${this.section === "body-weight" ? "active" : ""} type="button" @click=${() => (this.section = "body-weight")}>Body weight</button>
-          <button class=${this.section === "blood-pressure" ? "active" : ""} type="button" @click=${() => (this.section = "blood-pressure")}>Blood pressure</button>
-          <button class=${this.section === "sleep" ? "active" : ""} type="button" @click=${() => (this.section = "sleep")}>Sleep</button>
-          <button class=${this.section === "pap" ? "active" : ""} type="button" @click=${() => (this.section = "pap")}>PAP</button>
-          <button class=${this.section === "monthly" ? "active" : ""} type="button" @click=${() => (this.section = "monthly")}>Monthly summaries</button>
-        </nav>
+        <div class="navigation-shell">
+          <button class="menu-toggle" type="button" aria-label="Toggle navigation menu" aria-expanded=${this.mobileMenuOpen ? "true" : "false"} aria-controls="mobile-navigation" @click=${() => (this.mobileMenuOpen = !this.mobileMenuOpen)}><span></span><span></span><span></span></button>
+          <nav class="primary-nav" aria-label="Health categories">${navigation.map((item) => html`<a href=${this.categoryDestination(item.category)} class=${this.category === item.category ? "active" : ""}>${item.label}</a>`)}</nav>
+          <nav id="mobile-navigation" class=${`mobile-nav ${this.mobileMenuOpen ? "open" : ""}`} aria-label="Health navigation">${navigation.map((group) => html`<section><strong>${group.label}</strong>${this.renderNavigationItems(group.category, true)}</section>`)}</nav>
+        </div>
         <div class="header-meta"><span class="status-dot"></span>Personal health log</div>
       </header>
 
-      ${this.section === "body-weight" ? html`<main>
+      ${this.category === "measurements" ? html`<nav class="secondary-nav" aria-label="Measurements">${this.renderNavigationItems("measurements")}</nav>` : nothing}
+
+      ${this.route === "weight" ? html`<main>
         <section class="page-heading">
           <div>
             <span class="eyebrow">Measurements</span>
@@ -270,7 +311,7 @@ class HealthzApp extends LitElement {
             </form>
           </aside>
         </div>
-      </main>` : this.section === "blood-pressure" ? html`<blood-pressure-page></blood-pressure-page>` : this.section === "sleep" ? html`<sleep-page></sleep-page>` : this.section === "pap" ? html`<pap-page></pap-page>` : html`<monthly-summaries-page></monthly-summaries-page>`}
+      </main>` : this.route === "blood-pressure" ? html`<blood-pressure-page></blood-pressure-page>` : this.route === "sleep" ? html`<sleep-page></sleep-page>` : this.route === "pap" ? html`<pap-page></pap-page>` : html`<monthly-summaries-page .tab=${this.route === "summary-pap" ? "pap" : "sleep"} @summary-tab-change=${this.showSummaryTab}></monthly-summaries-page>`}
 
       <footer><span>Healthz</span><span>Your data, clearly kept.</span></footer>
     `;
