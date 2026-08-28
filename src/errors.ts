@@ -20,3 +20,9 @@ export class SleepRecordConflictError extends Error {
     super("A sleep record already exists for this sleep date");
   }
 }
+
+export class PapRecordConflictError extends Error {
+  constructor() {
+    super("A PAP record already exists for this therapy date");
+  }
+}

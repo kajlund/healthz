@@ -80,6 +80,10 @@ h2 { margin: 5px 0 0; font-family: Georgia, serif; font-size: 25px; font-weight:
 .sleep-total strong { font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
 .sleep-total small, .stage-cell small, .source-cell small { color: var(--muted); }
 .source-cell strong { font-size: 18px; }
+.pap-workspace { grid-template-columns: minmax(0, 1fr) 390px; }
+.pap-grid { grid-template-columns: 1fr 1.25fr 1.2fr .7fr auto; }
+.pap-metrics { display: grid; gap: 4px; color: #4e5b52; font-size: 12px; }
+.pap-metrics strong { color: var(--ink); font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
 .pressure-cell strong { font-family: Georgia, serif; font-size: 20px; font-weight: 500; white-space: nowrap; }
 .pressure-cell small { color: var(--muted); font-family: inherit; font-size: 11px; }
 .pulse-cell { color: #4e5b52; font-size: 13px; white-space: nowrap; }
@@ -152,6 +156,10 @@ footer span:first-child { color: var(--ink); font-weight: 800; }
   .measurement-row { grid-template-columns: 1fr auto; gap: 13px; padding: 18px 20px; }
   .measurement-row.blood-pressure-grid { grid-template-columns: 1fr 1fr; }
   .measurement-row.sleep-grid { grid-template-columns: 1fr 1fr; }
+  .measurement-row.pap-grid { grid-template-columns: 1fr 1fr; }
+  .pap-grid .pap-metrics:nth-child(3) { grid-column: 1 / -1; }
+  .pap-grid .source-cell { text-align: right; }
+  .pap-grid .actions { grid-column: 1 / -1; }
   .sleep-grid .stage-cell { grid-column: 1 / -1; }
   .sleep-grid .source-cell { text-align: right; }
   .sleep-grid .actions { grid-column: 1 / -1; }

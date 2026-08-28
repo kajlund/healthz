@@ -49,3 +49,24 @@ export const sleepRecords = pgTable(
     index("sleep_records_sleep_date_index").on(table.sleepDate),
   ],
 );
+
+export const papRecords = pgTable(
+  "pap_records",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    therapyDate: date("therapy_date", { mode: "string" }).notNull(),
+    usageMinutes: integer("usage_minutes"),
+    eventsPerHour: numeric("events_per_hour", { precision: 8, scale: 2, mode: "number" }),
+    maskSealScore: integer("mask_seal_score"),
+    maskOnOffCount: integer("mask_on_off_count"),
+    totalScore: integer("total_score"),
+    source: text("source").default("manual").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("pap_records_therapy_date_unique").on(table.therapyDate),
+    index("pap_records_therapy_date_index").on(table.therapyDate),
+  ],
+);

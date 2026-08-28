@@ -108,3 +108,26 @@ export const sleepRecordsApi = {
   update: (id: string, input: SleepRecordInput) => request<SleepRecord>(`/api/sleep-records/${id}`, { method: "PUT", body: JSON.stringify(input) }),
   delete: (id: string) => request<void>(`/api/sleep-records/${id}`, { method: "DELETE" }),
 };
+
+export interface PapRecord {
+  id: string;
+  therapyDate: string;
+  usageMinutes: number | null;
+  eventsPerHour: number | null;
+  maskSealScore: number | null;
+  maskOnOffCount: number | null;
+  totalScore: number | null;
+  source: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PapRecordInput = Omit<PapRecord, "id" | "createdAt" | "updatedAt">;
+
+export const papRecordsApi = {
+  list: () => request<PapRecord[]>("/api/pap-records"),
+  create: (input: PapRecordInput) => request<PapRecord>("/api/pap-records", { method: "POST", body: JSON.stringify(input) }),
+  update: (id: string, input: PapRecordInput) => request<PapRecord>(`/api/pap-records/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  delete: (id: string) => request<void>(`/api/pap-records/${id}`, { method: "DELETE" }),
+};

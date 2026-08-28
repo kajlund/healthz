@@ -5,6 +5,7 @@ import { createApp } from "../src/app.js";
 import type { BodyMeasurementRepository } from "../src/body-measurements/repository.js";
 import type { BloodPressureReadingRepository } from "../src/blood-pressure-readings/repository.js";
 import type { SleepRecordRepository } from "../src/sleep-records/repository.js";
+import type { PapRecordRepository } from "../src/pap-records/repository.js";
 
 const repository: BodyMeasurementRepository = {
   create: vi.fn(),
@@ -22,8 +23,9 @@ const bloodPressureRepository: BloodPressureReadingRepository = {
   delete: vi.fn(),
 };
 const sleepRepository: SleepRecordRepository = { create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() };
+const papRepository: PapRecordRepository = { create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() };
 
-const app = createApp(repository, bloodPressureRepository, sleepRepository);
+const app = createApp(repository, bloodPressureRepository, sleepRepository, papRepository);
 
 describe("HTTP application", () => {
   it("reports that it is healthy", async () => {

@@ -9,6 +9,7 @@ import type {
 import { BodyMeasurementConflictError } from "../src/errors.js";
 import type { BloodPressureReadingRepository } from "../src/blood-pressure-readings/repository.js";
 import type { SleepRecordRepository } from "../src/sleep-records/repository.js";
+import type { PapRecordRepository } from "../src/pap-records/repository.js";
 
 const firstId = "3bd395b9-6d1d-4e4f-ae88-b06de082f29c";
 const secondId = "cd193842-b59e-44cc-90d8-f995f189a90c";
@@ -42,6 +43,7 @@ const bloodPressureRepository: BloodPressureReadingRepository = {
   delete: vi.fn(),
 };
 const sleepRepository: SleepRecordRepository = { create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() };
+const papRepository: PapRecordRepository = { create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() };
 
 describe("body measurement routes", () => {
   let repository: BodyMeasurementRepository;
@@ -51,7 +53,7 @@ describe("body measurement routes", () => {
   });
 
   it("creates a body measurement", async () => {
-    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository)).post("/api/body-measurements").send({
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).post("/api/body-measurements").send({
       measuredOn: "2026-08-27",
       weightKg: 82.45,
       notes: "Morning",
@@ -67,7 +69,7 @@ describe("body measurement routes", () => {
   });
 
   it("rejects invalid input without calling the repository", async () => {
-    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository)).post("/api/body-measurements").send({
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).post("/api/body-measurements").send({
       measuredOn: "2026-02-30",
       weightKg: -1,
     });
@@ -79,7 +81,7 @@ describe("body measurement routes", () => {
   });
 
   it("lists measurements in the order supplied by the newest-first repository query", async () => {
-    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository)).get("/api/body-measurements");
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).get("/api/body-measurements");
 
     expect(response.status).toBe(200);
     expect(response.body.map((item: BodyMeasurement) => item.measuredOn)).toEqual([
@@ -89,7 +91,7 @@ describe("body measurement routes", () => {
   });
 
   it("gets a body measurement by id", async () => {
-    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository)).get(`/api/body-measurements/${firstId}`);
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).get(`/api/body-measurements/${firstId}`);
 
     expect(response.status).toBe(200);
     expect(response.body.id).toBe(firstId);
@@ -97,7 +99,7 @@ describe("body measurement routes", () => {
   });
 
   it("updates a body measurement", async () => {
-    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository)).put(`/api/body-measurements/${firstId}`).send({
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).put(`/api/body-measurements/${firstId}`).send({
       measuredOn: "2026-08-27",
       weightKg: 81.9,
       notes: null,
@@ -113,7 +115,7 @@ describe("body measurement routes", () => {
   });
 
   it("deletes a body measurement", async () => {
-    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository)).delete(`/api/body-measurements/${firstId}`);
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).delete(`/api/body-measurements/${firstId}`);
 
     expect(response.status).toBe(204);
     expect(repository.delete).toHaveBeenCalledWith(firstId);
@@ -122,7 +124,7 @@ describe("body measurement routes", () => {
   it("returns a consistent error for a missing measurement", async () => {
     vi.mocked(repository.findById).mockResolvedValueOnce(undefined);
 
-    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository)).get(`/api/body-measurements/${firstId}`);
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).get(`/api/body-measurements/${firstId}`);
 
     expect(response.status).toBe(404);
     expect(response.body).toEqual({
@@ -133,7 +135,7 @@ describe("body measurement routes", () => {
   it("returns a consistent error for a date conflict", async () => {
     vi.mocked(repository.create).mockRejectedValueOnce(new BodyMeasurementConflictError());
 
-    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository)).post("/api/body-measurements").send({
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).post("/api/body-measurements").send({
       measuredOn: "2026-08-27",
       weightKg: 82.45,
     });
@@ -148,7 +150,7 @@ describe("body measurement routes", () => {
   });
 
   it("rejects an invalid measurement id", async () => {
-    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository)).get("/api/body-measurements/not-a-uuid");
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).get("/api/body-measurements/not-a-uuid");
 
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("VALIDATION_ERROR");

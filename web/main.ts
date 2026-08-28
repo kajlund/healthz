@@ -3,6 +3,7 @@ import { LitElement, html, nothing } from "lit";
 import { bodyMeasurementsApi, type BodyMeasurement, type BodyMeasurementInput } from "./api.js";
 import "./blood-pressure-page.js";
 import "./sleep-page.js";
+import "./pap-page.js";
 import "./styles.css";
 
 const today = () => {
@@ -34,7 +35,7 @@ class HealthzApp extends LitElement {
   declare private measuredOn: string;
   declare private weightKg: string;
   declare private notes: string;
-  declare private section: "body-weight" | "blood-pressure" | "sleep";
+  declare private section: "body-weight" | "blood-pressure" | "sleep" | "pap";
 
   constructor() {
     super();
@@ -223,6 +224,7 @@ class HealthzApp extends LitElement {
           <button class=${this.section === "body-weight" ? "active" : ""} type="button" @click=${() => (this.section = "body-weight")}>Body weight</button>
           <button class=${this.section === "blood-pressure" ? "active" : ""} type="button" @click=${() => (this.section = "blood-pressure")}>Blood pressure</button>
           <button class=${this.section === "sleep" ? "active" : ""} type="button" @click=${() => (this.section = "sleep")}>Sleep</button>
+          <button class=${this.section === "pap" ? "active" : ""} type="button" @click=${() => (this.section = "pap")}>PAP</button>
         </nav>
         <div class="header-meta"><span class="status-dot"></span>Personal health log</div>
       </header>
@@ -266,7 +268,7 @@ class HealthzApp extends LitElement {
             </form>
           </aside>
         </div>
-      </main>` : this.section === "blood-pressure" ? html`<blood-pressure-page></blood-pressure-page>` : html`<sleep-page></sleep-page>`}
+      </main>` : this.section === "blood-pressure" ? html`<blood-pressure-page></blood-pressure-page>` : this.section === "sleep" ? html`<sleep-page></sleep-page>` : html`<pap-page></pap-page>`}
 
       <footer><span>Healthz</span><span>Your data, clearly kept.</span></footer>
     `;

@@ -146,3 +146,34 @@ Example request body for create and update:
 ```
 
 `awakeMinutes`, stage durations, `sleepScore`, and `notes` may be omitted or set to `null`. Each duration is limited to 1,440 minutes; total sleep must be greater than zero. Source is required and defaults to `manual` at the database level.
+
+## Daily PAP API
+
+A PAP record contains the values reported by a PAP machine or service for its `therapyDate`. The date is stored exactly as reported rather than derived from a timestamp, and only one record may exist per therapy date. At least one measurement is required, but historical records may contain only a subset of the measurements.
+
+Apply migration `0003_kind_may_parker.sql` with `npm run db:migrate` before using these endpoints.
+
+Available endpoints:
+
+- `POST /api/pap-records` - create a daily PAP record
+- `GET /api/pap-records` - list records by therapy date, newest first
+- `GET /api/pap-records/:id` - get one record
+- `PUT /api/pap-records/:id` - replace one record
+- `DELETE /api/pap-records/:id` - delete one record
+
+Example request body for create and update:
+
+```json
+{
+  "therapyDate": "2026-08-28",
+  "usageMinutes": 438,
+  "eventsPerHour": 2.35,
+  "maskSealScore": 18,
+  "maskOnOffCount": 2,
+  "totalScore": 91,
+  "source": "manual",
+  "notes": "Good seal"
+}
+```
+
+All measurements are optional individually and remain `null` when absent; at least one must be supplied. `usageMinutes` is limited to 1,440, `eventsPerHour` supports two decimal places, and `totalScore` is limited to 0–100. The fixed-precision database value for `eventsPerHour` is returned by the API as a JSON number.
