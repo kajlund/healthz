@@ -7,6 +7,7 @@ import type {
   BloodPressureReading,
   BloodPressureReadingRepository,
 } from "../src/blood-pressure-readings/repository.js";
+import type { SleepRecordRepository } from "../src/sleep-records/repository.js";
 
 const firstId = "82a123e3-ded4-4d5d-954b-92ff3de390e1";
 const secondId = "4682623b-1791-45f4-8938-3e55238c0951";
@@ -30,6 +31,7 @@ const bodyMeasurementRepository: BodyMeasurementRepository = {
   update: vi.fn(),
   delete: vi.fn(),
 };
+const sleepRepository: SleepRecordRepository = { create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() };
 
 const createRepository = (): BloodPressureReadingRepository => ({
   create: vi.fn().mockResolvedValue(reading()),
@@ -57,7 +59,7 @@ describe("blood-pressure reading routes", () => {
     repository = createRepository();
   });
 
-  const app = () => createApp(bodyMeasurementRepository, repository);
+  const app = () => createApp(bodyMeasurementRepository, repository, sleepRepository);
 
   it("creates a valid reading and normalizes its notes", async () => {
     const response = await request(app()).post("/api/blood-pressure-readings").send(validInput);

@@ -114,3 +114,35 @@ Example request body for create and update:
 ```
 
 `pulse` and `notes` may be omitted or set to `null`. Systolic pressure must be greater than diastolic pressure.
+
+## Daily-sleep API
+
+A sleep record describes the main sleep period ending on `sleepDate`. For example, sleep that begins Thursday night and ends Friday morning uses Friday's date. Durations are integer minutes, `totalSleepMinutes` excludes awake time, and only one record may exist per sleep date. Stage totals are allowed to differ from total sleep.
+
+Apply migration `0002_burly_mac_gargan.sql` with `npm run db:migrate` before using these endpoints.
+
+Available endpoints:
+
+- `POST /api/sleep-records` - create a daily sleep record
+- `GET /api/sleep-records` - list records by sleep date, newest first
+- `GET /api/sleep-records/:id` - get one record
+- `PUT /api/sleep-records/:id` - replace one record
+- `DELETE /api/sleep-records/:id` - delete one record
+
+Example request body for create and update:
+
+```json
+{
+  "sleepDate": "2026-08-28",
+  "totalSleepMinutes": 444,
+  "awakeMinutes": 31,
+  "lightMinutes": 250,
+  "deepMinutes": 90,
+  "remMinutes": 100,
+  "sleepScore": 86,
+  "source": "manual",
+  "notes": "Felt rested"
+}
+```
+
+`awakeMinutes`, stage durations, `sleepScore`, and `notes` may be omitted or set to `null`. Each duration is limited to 1,440 minutes; total sleep must be greater than zero. Source is required and defaults to `manual` at the database level.

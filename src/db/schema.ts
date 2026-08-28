@@ -27,3 +27,25 @@ export const bloodPressureReadings = pgTable(
   },
   (table) => [index("blood_pressure_readings_measured_at_index").on(table.measuredAt)],
 );
+
+export const sleepRecords = pgTable(
+  "sleep_records",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sleepDate: date("sleep_date", { mode: "string" }).notNull(),
+    totalSleepMinutes: integer("total_sleep_minutes").notNull(),
+    awakeMinutes: integer("awake_minutes"),
+    lightMinutes: integer("light_minutes"),
+    deepMinutes: integer("deep_minutes"),
+    remMinutes: integer("rem_minutes"),
+    sleepScore: integer("sleep_score"),
+    source: text("source").default("manual").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("sleep_records_sleep_date_unique").on(table.sleepDate),
+    index("sleep_records_sleep_date_index").on(table.sleepDate),
+  ],
+);

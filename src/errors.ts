@@ -14,3 +14,9 @@ export class BodyMeasurementConflictError extends Error {
     super("A body-weight measurement already exists for this date");
   }
 }
+
+export class SleepRecordConflictError extends Error {
+  constructor() {
+    super("A sleep record already exists for this sleep date");
+  }
+}

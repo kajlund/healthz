@@ -84,3 +84,27 @@ export const bloodPressureReadingsApi = {
   delete: (id: string) =>
     request<void>(`/api/blood-pressure-readings/${id}`, { method: "DELETE" }),
 };
+
+export interface SleepRecord {
+  id: string;
+  sleepDate: string;
+  totalSleepMinutes: number;
+  awakeMinutes: number | null;
+  lightMinutes: number | null;
+  deepMinutes: number | null;
+  remMinutes: number | null;
+  sleepScore: number | null;
+  source: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SleepRecordInput = Omit<SleepRecord, "id" | "createdAt" | "updatedAt">;
+
+export const sleepRecordsApi = {
+  list: () => request<SleepRecord[]>("/api/sleep-records"),
+  create: (input: SleepRecordInput) => request<SleepRecord>("/api/sleep-records", { method: "POST", body: JSON.stringify(input) }),
+  update: (id: string, input: SleepRecordInput) => request<SleepRecord>(`/api/sleep-records/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  delete: (id: string) => request<void>(`/api/sleep-records/${id}`, { method: "DELETE" }),
+};

@@ -5,11 +5,14 @@ import type { BodyMeasurementRepository } from "./body-measurements/repository.j
 import { createBodyMeasurementsRouter } from "./body-measurements/router.js";
 import type { BloodPressureReadingRepository } from "./blood-pressure-readings/repository.js";
 import { createBloodPressureReadingsRouter } from "./blood-pressure-readings/router.js";
-import { AppError, BodyMeasurementConflictError } from "./errors.js";
+import { AppError, BodyMeasurementConflictError, SleepRecordConflictError } from "./errors.js";
+import type { SleepRecordRepository } from "./sleep-records/repository.js";
+import { createSleepRecordsRouter } from "./sleep-records/router.js";
 
 export const createApp = (
   bodyMeasurementRepository: BodyMeasurementRepository,
   bloodPressureReadingRepository: BloodPressureReadingRepository,
+  sleepRecordRepository: SleepRecordRepository,
 ) => {
   const app = express();
 
@@ -24,6 +27,7 @@ export const createApp = (
     "/api/blood-pressure-readings",
     createBloodPressureReadingsRouter(bloodPressureReadingRepository),
   );
+  app.use("/api/sleep-records", createSleepRecordsRouter(sleepRecordRepository));
 
   app.use(express.static("dist/public"));
 
@@ -52,7 +56,7 @@ export const createApp = (
       return;
     }
 
-    if (error instanceof BodyMeasurementConflictError) {
+    if (error instanceof BodyMeasurementConflictError || error instanceof SleepRecordConflictError) {
       response.status(409).json({
         error: { code: "CONFLICT", message: error.message },
       });
