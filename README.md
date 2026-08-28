@@ -205,3 +205,36 @@ Monthly PAP endpoints:
 Monthly PAP request fields are `summaryMonth`, `averageUsageMinutes`, `averageEventsPerHour`, `averageMaskSealScore`, `averageMaskOnOffCount`, `averageTotalScore`, `daysRecorded`, `source`, and `notes`. Decimal averages support two decimal places and are returned as JSON numbers.
 
 For either summary type, at least one average measurement is required. Missing averages remain `null`. `daysRecorded`, when supplied, must be positive and cannot exceed the actual number of days in the selected month, including leap-year February.
+
+## Reports
+
+Reports are calculated on request and never modify or persist source records. The reporting service executes six bounded source queries for a requested range—Weight, Blood pressure, daily Sleep, daily PAP, monthly Sleep summaries, and monthly PAP summaries—then performs reusable calculations in memory. No query is issued per month or metric.
+
+Monthly report:
+
+```sh
+curl "http://localhost:3000/api/reports/monthly?from=2025-01&to=2025-12"
+```
+
+- `GET /api/reports/monthly?from=YYYY-MM&to=YYYY-MM`
+- Both parameters are required, `from` cannot follow `to`, and the range is limited to 120 months.
+- Every requested month is returned oldest first, including empty months.
+
+Year comparison:
+
+```sh
+curl "http://localhost:3000/api/reports/year-over-year?years=2024,2025,2026"
+```
+
+- `GET /api/reports/year-over-year?years=2024,2025`
+- Years are validated, deduplicated, sorted, and limited to 10.
+- January through December is returned for every selected year, including empty months.
+
+Weight reports include average, minimum, maximum, first, last, and measurement count. Blood-pressure readings are averaged within each UTC calendar day first, then those daily averages receive equal weight in the monthly result. Pulse uses only days containing at least one pulse value.
+
+Sleep and PAP fallback is applied independently per metric. When any daily value exists for a metric, only daily values are averaged and its source is `daily`. Otherwise the stored monthly average is used with source `monthly-summary`. If neither exists, the value is `null` with source `none`. Daily and summary values are never combined. `sampleCount` is the number of contributing daily values, or the summary's `daysRecorded` when summary fallback is used.
+
+Frontend report routes:
+
+- `#/reports/monthly` — Monthly overview, with optional `from` and `to` hash-query parameters
+- `#/reports/year-comparison` — Year comparison, with optional `years` and `metric` hash-query parameters

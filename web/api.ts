@@ -160,3 +160,19 @@ export const monthlyPapSummariesApi = {
   update: (id: string, input: MonthlyPapSummaryInput) => request<MonthlyPapSummary>(`/api/monthly-pap-summaries/${id}`, { method: "PUT", body: JSON.stringify(input) }),
   delete: (id: string) => request<void>(`/api/monthly-pap-summaries/${id}`, { method: "DELETE" }),
 };
+
+export type ReportSource = "daily" | "monthly-summary" | "none";
+export interface ReportMetric { value: number | null; source: ReportSource; sampleCount: number | null; }
+export interface MonthlyReport {
+  month: string;
+  weight: null | { average: ReportMetric; minimum: ReportMetric; maximum: ReportMetric; first: ReportMetric; last: ReportMetric; measurementCount: number };
+  bloodPressure: null | { averageSystolic: ReportMetric; averageDiastolic: ReportMetric; averagePulse: ReportMetric; readingCount: number; measuredDayCount: number };
+  sleep: { averageTotalSleepMinutes: ReportMetric; averageAwakeMinutes: ReportMetric; averageLightMinutes: ReportMetric; averageDeepMinutes: ReportMetric; averageRemMinutes: ReportMetric; averageSleepScore: ReportMetric };
+  pap: { averageUsageMinutes: ReportMetric; averageEventsPerHour: ReportMetric; averageMaskSealScore: ReportMetric; averageMaskOnOffCount: ReportMetric; averageTotalScore: ReportMetric };
+}
+export interface MonthlyReportResponse { meta: { from: string; to: string; generatedAt: string; monthCount: number }; months: MonthlyReport[]; }
+export interface YearReportResponse { meta: { years: number[]; generatedAt: string; monthCount: number }; series: Array<{ year: number; months: MonthlyReport[] }>; }
+export const reportsApi = {
+  monthly: (from: string, to: string) => request<MonthlyReportResponse>(`/api/reports/monthly?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  yearOverYear: (years: number[]) => request<YearReportResponse>(`/api/reports/year-over-year?years=${years.join(",")}`),
+};
