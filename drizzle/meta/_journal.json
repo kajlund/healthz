@@ -36,6 +36,13 @@
       "when": 1787907045082,
       "tag": "0004_rare_amazoness",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788016649517,
+      "tag": "0005_adorable_sinister_six",
+      "breakpoints": true
     }
   ]
 }

@@ -112,6 +112,7 @@ export const sleepRecordsApi = {
 export interface PapRecord {
   id: string;
   therapyDate: string;
+  healthDate: string | null;
   usageMinutes: number | null;
   eventsPerHour: number | null;
   maskSealScore: number | null;
@@ -123,7 +124,7 @@ export interface PapRecord {
   updatedAt: string;
 }
 
-export type PapRecordInput = Omit<PapRecord, "id" | "createdAt" | "updatedAt">;
+export type PapRecordInput = Omit<PapRecord, "id" | "createdAt" | "updatedAt" | "healthDate"> & { healthDate: string };
 
 export const papRecordsApi = {
   list: () => request<PapRecord[]>("/api/pap-records"),
@@ -182,7 +183,7 @@ export interface DashboardResponse {
     weight: Pick<BodyMeasurement, "measuredOn" | "weightKg"> | null;
     bloodPressure: Pick<BloodPressureReading, "measuredAt" | "systolic" | "diastolic" | "pulse"> | null;
     sleep: Pick<SleepRecord, "sleepDate" | "totalSleepMinutes" | "sleepScore"> | null;
-    pap: Pick<PapRecord, "therapyDate" | "usageMinutes" | "eventsPerHour" | "totalScore"> | null;
+    pap: Pick<PapRecord, "therapyDate" | "healthDate" | "usageMinutes" | "eventsPerHour" | "totalScore"> | null;
   };
   currentMonth: MonthlyReport; previousMonthData: MonthlyReport; trend: MonthlyReport[];
 }

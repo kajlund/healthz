@@ -15,6 +15,7 @@ const optionalNotes = z
 const papRecordSchema = z
   .object({
     therapyDate: dateOnly,
+    healthDate: dateOnly,
     usageMinutes: z.number().int().min(0).max(24 * 60).nullable().optional(),
     eventsPerHour: z.number().nonnegative().multipleOf(0.01).nullable().optional(),
     maskSealScore: z.number().int().nonnegative().nullable().optional(),

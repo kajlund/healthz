@@ -1,4 +1,5 @@
 import type { MonthlyReport, PapReport, ReportData, ReportMetric, SleepReport } from "./types.js";
+import { effectivePapHealthDate } from "../pap-records/date.js";
 
 const round = (value: number, decimals: number) => Number(value.toFixed(decimals));
 const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -42,7 +43,7 @@ export const calculateMonthlyReports = (months: string[], data: ReportData): Mon
     averageRemMinutes: fallbackMetric(sleepDaily.map((item) => item.remMinutes), sleepSummary?.averageRemMinutes, sleepSummary?.daysRecorded, 0),
     averageSleepScore: fallbackMetric(sleepDaily.map((item) => item.sleepScore), sleepSummary?.averageSleepScore, sleepSummary?.daysRecorded, 2),
   };
-  const papDaily = data.papRecords.filter((item) => byMonth(item.therapyDate) === month); const papSummary = data.monthlyPap.find((item) => byMonth(item.summaryMonth) === month);
+  const papDaily = data.papRecords.filter((item) => byMonth(effectivePapHealthDate(item)) === month); const papSummary = data.monthlyPap.find((item) => byMonth(item.summaryMonth) === month);
   const pap: PapReport = {
     averageUsageMinutes: fallbackMetric(papDaily.map((item) => item.usageMinutes), papSummary?.averageUsageMinutes, papSummary?.daysRecorded, 0),
     averageEventsPerHour: fallbackMetric(papDaily.map((item) => item.eventsPerHour), papSummary?.averageEventsPerHour, papSummary?.daysRecorded, 2),

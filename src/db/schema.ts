@@ -55,6 +55,7 @@ export const papRecords = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     therapyDate: date("therapy_date", { mode: "string" }).notNull(),
+    healthDate: date("health_date", { mode: "string" }),
     usageMinutes: integer("usage_minutes"),
     eventsPerHour: numeric("events_per_hour", { precision: 8, scale: 2, mode: "number" }),
     maskSealScore: integer("mask_seal_score"),
@@ -68,6 +69,7 @@ export const papRecords = pgTable(
   (table) => [
     uniqueIndex("pap_records_therapy_date_unique").on(table.therapyDate),
     index("pap_records_therapy_date_index").on(table.therapyDate),
+    index("pap_records_health_date_index").on(table.healthDate),
   ],
 );
 

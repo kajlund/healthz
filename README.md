@@ -151,7 +151,9 @@ Example request body for create and update:
 
 ## Daily PAP API
 
-A PAP record contains the values reported by a PAP machine or service for its `therapyDate`. The date is stored exactly as reported rather than derived from a timestamp, and only one record may exist per therapy date. At least one measurement is required, but historical records may contain only a subset of the measurements.
+A PAP record preserves two calendar dates. `therapyDate` is the PAP date shown by the machine or service, normally when the overnight session began. `healthDate` is the wake-up date Healthz uses to align the session with Sleep. Only one record may exist per PAP date. At least one measurement is required, but historical records may contain only a subset of the measurements.
+
+New records and full updates require both dates. The form defaults Health date to the following calendar day until the user manually edits it; unusual sessions may use any valid Health date. Migration `0005_adorable_sinister_six.sql` leaves existing rows with `healthDate: null`, so they must be corrected manually when edited. Legacy rows remain readable and deletable, and opening the form never saves a derived date.
 
 Apply migration `0003_kind_may_parker.sql` with `npm run db:migrate` before using these endpoints.
 
@@ -168,6 +170,7 @@ Example request body for create and update:
 ```json
 {
   "therapyDate": "2026-08-28",
+  "healthDate": "2026-08-29",
   "usageMinutes": 438,
   "eventsPerHour": 2.35,
   "maskSealScore": 18,
@@ -179,6 +182,8 @@ Example request body for create and update:
 ```
 
 All measurements are optional individually and remain `null` when absent; at least one must be supplied. `usageMinutes` is limited to 1,440, `eventsPerHour` supports two decimal places, and `totalScore` is limited to 0–100. The fixed-precision database value for `eventsPerHour` is returned by the API as a JSON number.
+
+Daily PAP reports use `healthDate`. Existing rows without it temporarily fall back to `therapyDate` for bounded queries and grouping; the fallback is never persisted. Monthly PAP summaries retain their stored PAP-service `summaryMonth` and are never shifted. A daily-derived report may therefore align an overnight session to the following month while a historical PAP-source summary remains in its original month.
 
 ## Monthly historical summaries
 

@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from "lit";
 
 import { papRecordsApi, type PapRecord, type PapRecordInput } from "./api.js";
+import { followingCalendarDay } from "./pap-date.js";
 
 const today = () => {
   const now = new Date();
@@ -14,7 +15,7 @@ export class PapPage extends LitElement {
   static properties = {
     records: { state: true }, loading: { state: true }, saving: { state: true },
     deletingId: { state: true }, error: { state: true }, editingId: { state: true },
-    therapyDate: { state: true }, usageHours: { state: true }, usageMinutes: { state: true },
+    therapyDate: { state: true }, healthDate: { state: true }, healthDateAutomatic: { state: true }, usageHours: { state: true }, usageMinutes: { state: true },
     eventsPerHour: { state: true }, maskSealScore: { state: true }, maskOnOffCount: { state: true },
     totalScore: { state: true }, source: { state: true }, notes: { state: true },
   };
@@ -26,6 +27,8 @@ export class PapPage extends LitElement {
   declare private error: string | null;
   declare private editingId: string | null;
   declare private therapyDate: string;
+  declare private healthDate: string;
+  declare private healthDateAutomatic: boolean;
   declare private usageHours: string;
   declare private usageMinutes: string;
   declare private eventsPerHour: string;
@@ -38,7 +41,7 @@ export class PapPage extends LitElement {
   constructor() {
     super();
     this.records = []; this.loading = true; this.saving = false; this.deletingId = null;
-    this.error = null; this.editingId = null; this.therapyDate = today(); this.usageHours = "";
+    this.error = null; this.editingId = null; this.therapyDate = today(); this.healthDate = followingCalendarDay(this.therapyDate); this.healthDateAutomatic = true; this.usageHours = "";
     this.usageMinutes = ""; this.eventsPerHour = ""; this.maskSealScore = "";
     this.maskOnOffCount = ""; this.totalScore = ""; this.source = "manual"; this.notes = "";
   }
@@ -54,13 +57,13 @@ export class PapPage extends LitElement {
   }
 
   private resetForm() {
-    this.editingId = null; this.therapyDate = today(); this.usageHours = ""; this.usageMinutes = "";
+    this.editingId = null; this.therapyDate = today(); this.healthDate = followingCalendarDay(this.therapyDate); this.healthDateAutomatic = true; this.usageHours = ""; this.usageMinutes = "";
     this.eventsPerHour = ""; this.maskSealScore = ""; this.maskOnOffCount = "";
     this.totalScore = ""; this.source = "manual"; this.notes = "";
   }
 
   private edit(record: PapRecord) {
-    this.editingId = record.id; this.therapyDate = record.therapyDate;
+    this.editingId = record.id; this.therapyDate = record.therapyDate; this.healthDate = record.healthDate ?? ""; this.healthDateAutomatic = false;
     [this.usageHours, this.usageMinutes] = durationParts(record.usageMinutes);
     this.eventsPerHour = record.eventsPerHour === null ? "" : String(record.eventsPerHour);
     this.maskSealScore = record.maskSealScore === null ? "" : String(record.maskSealScore);
@@ -71,6 +74,7 @@ export class PapPage extends LitElement {
   }
 
   private optionalNumber(value: string) { return value === "" ? null : Number(value); }
+  private changeTherapyDate(value: string) { this.therapyDate = value; if (this.healthDateAutomatic) this.healthDate = followingCalendarDay(value); }
   private optionalDuration() {
     return this.usageHours === "" && this.usageMinutes === ""
       ? null
@@ -81,6 +85,7 @@ export class PapPage extends LitElement {
     event.preventDefault(); this.saving = true; this.error = null;
     const input: PapRecordInput = {
       therapyDate: this.therapyDate,
+      healthDate: this.healthDate,
       usageMinutes: this.optionalDuration(),
       eventsPerHour: this.optionalNumber(this.eventsPerHour),
       maskSealScore: this.optionalNumber(this.maskSealScore),
@@ -114,9 +119,9 @@ export class PapPage extends LitElement {
   private renderList() {
     if (this.loading) return html`<div class="state" aria-live="polite"><span class="spinner"></span>Loading PAP records…</div>`;
     if (!this.records.length) return html`<div class="state empty"><span class="empty-mark">04</span><strong>Start your PAP history</strong><p>Add the values reported by your machine or service.</p></div>`;
-    return html`<div class="measurement-list"><div class="list-head pap-grid" aria-hidden="true"><span>Therapy date</span><span>Usage & AHI</span><span>Scores & count</span><span>Source</span><span>Actions</span></div>${this.records.map((item) => html`
+    return html`<div class="measurement-list"><div class="list-head pap-grid" aria-hidden="true"><span>PAP & Health dates</span><span>Usage & AHI</span><span>Scores & count</span><span>Source</span><span>Actions</span></div>${this.records.map((item) => html`
       <article class="measurement-row pap-grid">
-        <div class="date-cell"><span class="mobile-label">Therapy date</span><strong>${this.formatDate(item.therapyDate)}</strong></div>
+        <div class="date-cell pap-date-cell"><span class="mobile-label">Dates</span><div class="pap-date-pair"><div><small>PAP</small><strong>${this.formatDate(item.therapyDate)}</strong></div><div><small>Health</small>${item.healthDate ? html`<strong>${this.formatDate(item.healthDate)}</strong>` : html`<span class="muted">Not set</span>`}</div></div></div>
         <div class="pap-metrics"><span class="mobile-label">Usage & AHI</span>${item.usageMinutes === null ? nothing : html`<strong>${formatDuration(item.usageMinutes)}</strong>`}${item.eventsPerHour === null ? nothing : html`<span>${item.eventsPerHour} events/hour (AHI)</span>`}${item.usageMinutes === null && item.eventsPerHour === null ? html`<span class="muted">Not recorded</span>` : nothing}</div>
         <div class="pap-metrics"><span class="mobile-label">Scores & count</span>${item.maskSealScore === null ? nothing : html`<span>Mask seal ${item.maskSealScore}</span>`}${item.maskOnOffCount === null ? nothing : html`<span>Mask on/off ${item.maskOnOffCount}</span>`}${item.totalScore === null ? nothing : html`<span>Total ${item.totalScore}/100 points</span>`}${item.maskSealScore === null && item.maskOnOffCount === null && item.totalScore === null ? html`<span class="muted">Not recorded</span>` : nothing}</div>
         <div class="source-cell"><span class="mobile-label">Source</span><small>${item.source}</small></div>
@@ -126,16 +131,19 @@ export class PapPage extends LitElement {
 
   render() {
     const latest = this.records[0];
-    return html`<main><section class="page-heading"><div><span class="eyebrow">Daily records</span><h1>PAP</h1><p>Use the therapy date shown by your machine or service.</p></div><span class="section-index">04</span></section>
+    return html`<main><section class="page-heading"><div><span class="eyebrow">Daily records</span><h1>PAP</h1><p>PAP date is shown by the PAP service. Health date aligns the session with Sleep.</p></div><span class="section-index">04</span></section>
       <section class="summary" aria-label="PAP summary"><div><span class="eyebrow">Latest usage</span><strong>${latest?.usageMinutes === null || !latest ? "—" : formatDuration(latest.usageMinutes)}</strong><span>${latest ? this.formatDate(latest.therapyDate) : "No PAP records yet"}</span></div><div><span class="eyebrow">Latest AHI</span><strong>${latest?.eventsPerHour ?? "—"}</strong><span>${latest?.eventsPerHour === null || !latest ? "No event rate recorded" : "Events per hour"}</span></div><div><span class="eyebrow">Entries</span><strong>${this.records.length}</strong><span>Total PAP records</span></div></section>
       ${this.error ? html`<div class="error-banner" role="alert"><strong>Something needs attention.</strong><span>${this.error}</span><button type="button" @click=${() => (this.error = null)} aria-label="Dismiss error">×</button></div>` : nothing}
       <div class="workspace pap-workspace"><section class="list-card"><div class="card-heading"><div><span class="eyebrow">History</span><h2>Your PAP records</h2></div><button class="refresh-button" type="button" @click=${this.loadRecords} ?disabled=${this.loading}>Refresh</button></div>${this.renderList()}</section>
       <aside class="entry-card"><span class="eyebrow">${this.editingId ? "Edit entry" : "New entry"}</span><h2>${this.editingId ? "Update PAP record" : "Add PAP record"}</h2><p>Enter at least one measurement from the machine or service.</p><form @submit=${this.submit}>
-        <label>Therapy date<input type="date" required .value=${this.therapyDate} @input=${(e: InputEvent) => (this.therapyDate = (e.target as HTMLInputElement).value)} /></label>
-        <fieldset class="duration-field"><legend>Usage duration <span>optional</span></legend><div class="duration-inputs"><label><span class="sr-only">Usage hours</span><input type="number" min="0" max="24" step="1" inputmode="numeric" placeholder="h" .value=${this.usageHours} @input=${(e: InputEvent) => (this.usageHours = (e.target as HTMLInputElement).value)} /></label><span>h</span><label><span class="sr-only">Usage minutes</span><input type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="min" .value=${this.usageMinutes} @input=${(e: InputEvent) => (this.usageMinutes = (e.target as HTMLInputElement).value)} /></label><span>min</span></div></fieldset>
-        <label>Events per hour <span>optional · AHI</span><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="2.4" .value=${this.eventsPerHour} @input=${(e: InputEvent) => (this.eventsPerHour = (e.target as HTMLInputElement).value)} /></label>
-        <div class="vitals-inputs"><label>Mask seal score <span>optional</span><input type="number" min="0" step="1" inputmode="numeric" .value=${this.maskSealScore} @input=${(e: InputEvent) => (this.maskSealScore = (e.target as HTMLInputElement).value)} /></label><label>Mask on/off <span>optional</span><input type="number" min="0" step="1" inputmode="numeric" .value=${this.maskOnOffCount} @input=${(e: InputEvent) => (this.maskOnOffCount = (e.target as HTMLInputElement).value)} /></label></div>
+        <p class="form-help">PAP date is the date shown by the PAP service. Health date is the wake-up date Healthz uses to align this session with Sleep.</p>
+        <label>PAP date<input type="date" required .value=${this.therapyDate} @input=${(e: InputEvent) => this.changeTherapyDate((e.target as HTMLInputElement).value)} /></label>
+        <label>Health date <span>${this.editingId && !this.healthDate ? "required for this older record" : "wake-up date"}</span><input type="date" required .value=${this.healthDate} @input=${(e: InputEvent) => { this.healthDate = (e.target as HTMLInputElement).value; this.healthDateAutomatic = false; }} /></label>${this.editingId && !this.healthDate ? html`<button class="text-button health-date-default" type="button" @click=${() => { this.healthDate = followingCalendarDay(this.therapyDate); this.healthDateAutomatic = false; }}>Use following day</button>` : nothing}
         <label>Total score <span>optional · 0–100</span><input type="number" min="0" max="100" step="1" inputmode="numeric" .value=${this.totalScore} @input=${(e: InputEvent) => (this.totalScore = (e.target as HTMLInputElement).value)} /></label>
+        <fieldset class="duration-field"><legend>Usage duration <span>optional</span></legend><div class="duration-inputs"><label><span class="sr-only">Usage hours</span><input type="number" min="0" max="24" step="1" inputmode="numeric" placeholder="h" .value=${this.usageHours} @input=${(e: InputEvent) => (this.usageHours = (e.target as HTMLInputElement).value)} /></label><span>h</span><label><span class="sr-only">Usage minutes</span><input type="number" min="0" max="59" step="1" inputmode="numeric" placeholder="min" .value=${this.usageMinutes} @input=${(e: InputEvent) => (this.usageMinutes = (e.target as HTMLInputElement).value)} /></label><span>min</span></div></fieldset>
+        <label>Mask seal score <span>optional</span><input type="number" min="0" step="1" inputmode="numeric" .value=${this.maskSealScore} @input=${(e: InputEvent) => (this.maskSealScore = (e.target as HTMLInputElement).value)} /></label>
+        <label>Events per hour <span>optional · AHI</span><input type="number" min="0" step="0.01" inputmode="decimal" placeholder="2.4" .value=${this.eventsPerHour} @input=${(e: InputEvent) => (this.eventsPerHour = (e.target as HTMLInputElement).value)} /></label>
+        <label>Mask on/off <span>optional</span><input type="number" min="0" step="1" inputmode="numeric" .value=${this.maskOnOffCount} @input=${(e: InputEvent) => (this.maskOnOffCount = (e.target as HTMLInputElement).value)} /></label>
         <label>Source<input type="text" required maxlength="200" .value=${this.source} @input=${(e: InputEvent) => (this.source = (e.target as HTMLInputElement).value)} /></label>
         <label>Notes <span>optional</span><textarea maxlength="2000" rows="3" .value=${this.notes} @input=${(e: InputEvent) => (this.notes = (e.target as HTMLTextAreaElement).value)}></textarea></label>
         <button class="primary-button" type="submit" ?disabled=${this.saving}>${this.saving ? "Saving…" : this.editingId ? "Save changes" : "Add PAP record"}</button>${this.editingId ? html`<button class="cancel-button" type="button" @click=${this.resetForm}>Cancel editing</button>` : nothing}

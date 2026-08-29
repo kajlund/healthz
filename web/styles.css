@@ -90,9 +90,17 @@ h2 { margin: 5px 0 0; font-family: Georgia, serif; font-size: 25px; font-weight:
 .sleep-total small, .stage-cell small, .source-cell small { color: var(--muted); }
 .source-cell strong { font-size: 18px; }
 .pap-workspace { grid-template-columns: minmax(0, 1fr) 390px; }
-.pap-grid { grid-template-columns: 1fr 1.25fr 1.2fr .7fr auto; }
+.pap-grid { grid-template-columns: minmax(210px, 1.45fr) 1.1fr 1.1fr .65fr auto; }
 .pap-metrics { display: grid; gap: 4px; color: #4e5b52; font-size: 12px; }
 .pap-metrics strong { color: var(--ink); font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
+.pap-grid .date-cell { min-width: 0; }
+.pap-date-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pap-date-pair > div { min-width: 0; padding-left: 10px; display: grid; gap: 4px; border-left: 2px solid #d9e3db; }
+.pap-date-pair > div:first-child { border-left-color: #91b49d; }
+.pap-date-pair small { color: var(--muted); font-size: 9px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+.pap-date-pair strong, .pap-date-pair .muted { font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; }
+.form-help { margin: 0; padding: 10px 12px; border-left: 3px solid #bfd2c3; color: var(--muted); font-size: 11px; line-height: 1.5; }
+.health-date-default { width: fit-content; margin-top: -10px; }
 .monthly-workspace { grid-template-columns: minmax(0, 1fr) 390px; }
 .summary-tabs { display: flex; gap: 8px; margin-bottom: 22px; }
 .summary-tabs button { padding: 10px 16px; border: 1px solid var(--line); border-radius: 9px; background: var(--paper); color: var(--muted); font-weight: 700; }
@@ -252,6 +260,7 @@ report-chart canvas { max-width: 100%; }
   .measurement-row.blood-pressure-grid { grid-template-columns: 1fr 1fr; }
   .measurement-row.sleep-grid { grid-template-columns: 1fr 1fr; }
   .measurement-row.pap-grid { grid-template-columns: 1fr 1fr; }
+  .pap-date-cell { grid-column: 1 / -1; }
   .measurement-row.monthly-row { grid-template-columns: 1fr auto; }
   .monthly-row .monthly-values { grid-column: 1 / -1; }
   .monthly-row .actions { grid-column: 1 / -1; }

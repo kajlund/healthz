@@ -19,8 +19,8 @@ const data = (overrides: Partial<ReportData> = {}): ReportData => ({
     { sleepDate: "2025-01-04", totalSleepMinutes: 480, awakeMinutes: 20, lightMinutes: 260, deepMinutes: 90, remMinutes: null, sleepScore: null },
   ],
   papRecords: [
-    { therapyDate: "2025-01-03", usageMinutes: 420, eventsPerHour: null, maskSealScore: 18, maskOnOffCount: null, totalScore: 90 },
-    { therapyDate: "2025-01-04", usageMinutes: 480, eventsPerHour: null, maskSealScore: null, maskOnOffCount: 2, totalScore: null },
+    { therapyDate: "2025-01-02", healthDate: "2025-01-03", usageMinutes: 420, eventsPerHour: null, maskSealScore: 18, maskOnOffCount: null, totalScore: 90 },
+    { therapyDate: "2025-01-03", healthDate: "2025-01-04", usageMinutes: 480, eventsPerHour: null, maskSealScore: null, maskOnOffCount: 2, totalScore: null },
   ],
   monthlySleep: [{ summaryMonth: "2025-01-01", averageTotalSleepMinutes: 300, averageAwakeMinutes: 30, averageLightMinutes: null, averageDeepMinutes: null, averageRemMinutes: 100, averageSleepScore: 70, daysRecorded: 31 }],
   monthlyPap: [{ summaryMonth: "2025-01-01", averageUsageMinutes: 300, averageEventsPerHour: 2.35, averageMaskSealScore: 15, averageMaskOnOffCount: 1.25, averageTotalScore: 70, daysRecorded: 30 }],
@@ -59,6 +59,20 @@ describe("reporting service", () => {
     expect(typeof pap.averageEventsPerHour.value).toBe("number");
     const empty = (await new ReportingService(source(data({ papRecords: [], monthlyPap: [] }))).monthly("2025-01", "2025-01"))[0]!.pap.averageEventsPerHour;
     expect(empty).toEqual({ value: null, source: "none", sampleCount: null });
+  });
+  it("groups daily PAP by Health date across month and year boundaries", async () => {
+    const papRecords = [
+      { therapyDate: "2026-08-31", healthDate: "2026-09-01", usageMinutes: 420, eventsPerHour: 1.5, maskSealScore: null, maskOnOffCount: null, totalScore: null },
+      { therapyDate: "2026-12-31", healthDate: "2027-01-01", usageMinutes: 480, eventsPerHour: 0, maskSealScore: null, maskOnOffCount: null, totalScore: null },
+    ];
+    const reports = await new ReportingService(source(data({ papRecords, monthlyPap: [] }))).monthly("2026-08", "2027-01");
+    expect(reports[0]!.pap.averageUsageMinutes.value).toBeNull(); expect(reports[1]!.pap.averageUsageMinutes.value).toBe(420);
+    expect(reports[4]!.pap.averageUsageMinutes.value).toBeNull(); expect(reports[5]!.pap.averageUsageMinutes.value).toBe(480); expect(reports[5]!.pap.averageEventsPerHour.value).toBe(0);
+  });
+  it("falls back to Therapy date for legacy PAP without moving monthly summaries", async () => {
+    const legacy = { therapyDate: "2026-08-31", healthDate: null, usageMinutes: 300, eventsPerHour: null, maskSealScore: null, maskOnOffCount: null, totalScore: null };
+    const reports = await new ReportingService(source(data({ papRecords: [legacy], monthlyPap: [{ summaryMonth: "2026-09-01", averageUsageMinutes: 600, averageEventsPerHour: null, averageMaskSealScore: null, averageMaskOnOffCount: null, averageTotalScore: null, daysRecorded: 30 }] }))).monthly("2026-08", "2026-09");
+    expect(reports[0]!.pap.averageUsageMinutes).toMatchObject({ value: 300, source: "daily" }); expect(reports[1]!.pap.averageUsageMinutes).toMatchObject({ value: 600, source: "monthly-summary" }); expect(legacy.healthDate).toBeNull();
   });
   it("does not shift calendar dates or summary months", async () => {
     const report = await new ReportingService(source(data({ weights: [{ measuredOn: "2025-02-01", weightKg: 81 }], bloodPressures: [], sleepRecords: [], papRecords: [], monthlySleep: [{ summaryMonth: "2025-02-01", averageTotalSleepMinutes: null, averageAwakeMinutes: null, averageLightMinutes: null, averageDeepMinutes: null, averageRemMinutes: 90, averageSleepScore: null, daysRecorded: 28 }], monthlyPap: [] }))).monthly("2025-01", "2025-02");
