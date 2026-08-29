@@ -6,12 +6,14 @@ import "./sleep-page.js";
 import "./pap-page.js";
 import "./monthly-summaries-page.js";
 import "./reports-page.js";
+import "./dashboard-page.js";
 import "./styles.css";
 
-type Route = "weight" | "blood-pressure" | "sleep" | "pap" | "summary-sleep" | "summary-pap" | "report-monthly" | "report-year";
-type Category = "measurements" | "summaries" | "reports";
+type Route = "dashboard" | "weight" | "blood-pressure" | "sleep" | "pap" | "summary-sleep" | "summary-pap" | "report-monthly" | "report-year";
+type Category = "dashboard" | "measurements" | "summaries" | "reports";
 
 const navigation: Array<{ category: Category; label: string; items: Array<{ route: Route; label: string; hash: string }> }> = [
+  { category: "dashboard", label: "Dashboard", items: [{ route: "dashboard", label: "Dashboard", hash: "/" }] },
   { category: "measurements", label: "Measurements", items: [
     { route: "weight", label: "Weight", hash: "#/measurements/weight" },
     { route: "blood-pressure", label: "Blood pressure", hash: "#/measurements/blood-pressure" },
@@ -27,7 +29,7 @@ const navigation: Array<{ category: Category; label: string; items: Array<{ rout
     { route: "report-year", label: "Year comparison", hash: "#/reports/year-comparison" },
   ] },
 ];
-const routeFromHash = (): Route => { const path = window.location.hash.split("?")[0]; return navigation.flatMap(({ items }) => items).find(({ hash }) => hash === path)?.route ?? "weight"; };
+export const routeFromHash = (): Route => { const path = window.location.hash.split("?")[0]; if (!path) return "dashboard"; return navigation.flatMap(({ items }) => items).find(({ hash }) => hash === path)?.route ?? "weight"; };
 
 const today = () => {
   const now = new Date();
@@ -99,7 +101,7 @@ class HealthzApp extends LitElement {
   private handleRouteChange = () => { this.route = routeFromHash(); this.mobileMenuOpen = false; };
   private handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && this.mobileMenuOpen) { this.mobileMenuOpen = false; this.querySelector<HTMLButtonElement>(".menu-toggle")?.focus(); } };
   private handleOutsidePointer = (event: PointerEvent) => { if (this.mobileMenuOpen && !this.querySelector(".navigation-shell")?.contains(event.target as Node)) this.mobileMenuOpen = false; };
-  private get category(): Category { return this.route.startsWith("summary-") ? "summaries" : this.route.startsWith("report-") ? "reports" : "measurements"; }
+  private get category(): Category { return this.route === "dashboard" ? "dashboard" : this.route.startsWith("summary-") ? "summaries" : this.route.startsWith("report-") ? "reports" : "measurements"; }
   private destination(route: Route) { return navigation.flatMap(({ items }) => items).find((item) => item.route === route)!; }
   private categoryDestination(category: Category) { if (category === this.category) return this.destination(this.route).hash; return navigation.find((item) => item.category === category)!.items[0]!.hash; }
   private renderNavigationItems(category: Category, mobile = false) {
@@ -278,7 +280,7 @@ class HealthzApp extends LitElement {
       ${this.category === "measurements" ? html`<nav class="secondary-nav" aria-label="Measurements">${this.renderNavigationItems("measurements")}</nav>` : nothing}
       ${this.category === "reports" ? html`<nav class="secondary-nav" aria-label="Reports">${this.renderNavigationItems("reports")}</nav>` : nothing}
 
-      ${this.route === "weight" ? html`<main>
+      ${this.route === "dashboard" ? html`<dashboard-page></dashboard-page>` : this.route === "weight" ? html`<main>
         <section class="page-heading">
           <div>
             <span class="eyebrow">Measurements</span>

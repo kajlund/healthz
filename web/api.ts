@@ -176,3 +176,14 @@ export const reportsApi = {
   monthly: (from: string, to: string) => request<MonthlyReportResponse>(`/api/reports/monthly?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   yearOverYear: (years: number[]) => request<YearReportResponse>(`/api/reports/year-over-year?years=${years.join(",")}`),
 };
+export interface DashboardResponse {
+  referenceMonth: string; previousMonth: string; generatedAt: string;
+  latest: {
+    weight: Pick<BodyMeasurement, "measuredOn" | "weightKg"> | null;
+    bloodPressure: Pick<BloodPressureReading, "measuredAt" | "systolic" | "diastolic" | "pulse"> | null;
+    sleep: Pick<SleepRecord, "sleepDate" | "totalSleepMinutes" | "sleepScore"> | null;
+    pap: Pick<PapRecord, "therapyDate" | "usageMinutes" | "eventsPerHour" | "totalScore"> | null;
+  };
+  currentMonth: MonthlyReport; previousMonthData: MonthlyReport; trend: MonthlyReport[];
+}
+export const dashboardApi = { get: (month: string, signal?: AbortSignal) => request<DashboardResponse>(`/api/dashboard?month=${encodeURIComponent(month)}`, { signal }) };

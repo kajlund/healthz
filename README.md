@@ -17,6 +17,8 @@ A personal health tracking application built with Lit, TypeScript, Express, Post
 
 Open the frontend at `http://localhost:5173`. Vite proxies API requests to Express, which runs on the configured `PORT` (3000 by default), so frontend code does not need an environment-specific API URL.
 
+The root route is the Dashboard. Its optional browser-local reference month is stored as `/?month=YYYY-MM`; all existing hash routes remain available.
+
 ## Commands
 
 - `npm run dev` - run the API and Vite frontend together
@@ -180,7 +182,7 @@ All measurements are optional individually and remain `null` when absent; at lea
 
 ## Monthly historical summaries
 
-Monthly Sleep and PAP summaries preserve user-entered source data for historical periods where daily records are unavailable. They are not calculated from daily records and do not create, replace, merge with, or delete daily records. Both kinds may coexist for the same month. When reporting is added later, reports will prefer available daily records and use a monthly summary only as fallback; that selection logic is not implemented yet.
+Monthly Sleep and PAP summaries preserve user-entered source data for historical periods where daily records are unavailable. They are not calculated from daily records and do not create, replace, merge with, or delete daily records. Both kinds may coexist for the same month. Reports prefer available daily records and use a monthly summary only as metric-level fallback.
 
 The API exposes `summaryMonth` as `YYYY-MM`. PostgreSQL stores it as the first day of that month—for example, `2025-03` is stored as `2025-03-01`. Only one summary of each type may exist per month. Apply migration `0004_rare_amazoness.sql` with `npm run db:migrate` before using these endpoints.
 
@@ -238,3 +240,17 @@ Frontend report routes:
 
 - `#/reports/monthly` — Monthly overview, with optional `from` and `to` hash-query parameters
 - `#/reports/year-comparison` — Year comparison, with optional `years` and `metric` hash-query parameters
+
+## Dashboard
+
+The Dashboard is available at `/` and loads one read-only response:
+
+```sh
+curl "http://localhost:3000/api/dashboard?month=2026-08"
+```
+
+`month` is required by the API and represents the user's explicit calendar reference month; the browser supplies its current local `YYYY-MM` by default. The response contains `referenceMonth`, `previousMonth`, the latest overall Weight, Blood pressure, Sleep and PAP records, current and previous monthly report objects, a 12-month `trend`, and `generatedAt`.
+
+Latest records are newest overall and are not restricted to the reference month; each includes its date or timestamp. Four bounded newest-record queries run alongside one 12-month reporting-service call. The report call remains the source of all monthly statistics and Sleep/PAP fallback behavior, and nothing is persisted.
+
+Comparisons subtract the previous calendar month's existing report values at displayed precision. Missing operands produce “Not enough data”; null is never treated as zero, and direction is mathematical rather than medical. Dashboard charts consume the returned monthly report results and preserve missing values as gaps.

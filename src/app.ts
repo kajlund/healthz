@@ -16,6 +16,8 @@ import type { SleepRecordRepository } from "./sleep-records/repository.js";
 import { createSleepRecordsRouter } from "./sleep-records/router.js";
 import type { ReportingService } from "./reports/service.js";
 import { createReportsRouter } from "./reports/router.js";
+import type { DashboardService } from "./dashboard/service.js";
+import { createDashboardRouter } from "./dashboard/router.js";
 
 export const createApp = (
   bodyMeasurementRepository: BodyMeasurementRepository,
@@ -25,6 +27,7 @@ export const createApp = (
   monthlySleepSummaryRepository?: MonthlySleepSummaryRepository,
   monthlyPapSummaryRepository?: MonthlyPapSummaryRepository,
   reportingService?: ReportingService,
+  dashboardService?: DashboardService,
 ) => {
   const app = express();
 
@@ -44,6 +47,7 @@ export const createApp = (
   if (monthlySleepSummaryRepository) app.use("/api/monthly-sleep-summaries", createMonthlySleepSummariesRouter(monthlySleepSummaryRepository));
   if (monthlyPapSummaryRepository) app.use("/api/monthly-pap-summaries", createMonthlyPapSummariesRouter(monthlyPapSummaryRepository));
   if (reportingService) app.use("/api/reports", createReportsRouter(reportingService));
+  if (dashboardService) app.use("/api/dashboard", createDashboardRouter(dashboardService));
 
   app.use(express.static("dist/public"));
 
