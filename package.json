@@ -21,6 +21,7 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
+    "chart.js": "^4.5.1",
     "dotenv": "^17.2.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.1.0",
