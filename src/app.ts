@@ -18,6 +18,10 @@ import type { ReportingService } from "./reports/service.js";
 import { createReportsRouter } from "./reports/router.js";
 import type { DashboardService } from "./dashboard/service.js";
 import { createDashboardRouter } from "./dashboard/router.js";
+import type { HealthcareEventRepository } from "./healthcare-events/repository.js";
+import { createHealthcareEventsRouter } from "./healthcare-events/router.js";
+import type { HealthcareTagRepository } from "./healthcare-tags/repository.js";
+import { createHealthcareTagsRouter } from "./healthcare-tags/router.js";
 
 export const createApp = (
   bodyMeasurementRepository: BodyMeasurementRepository,
@@ -28,6 +32,8 @@ export const createApp = (
   monthlyPapSummaryRepository?: MonthlyPapSummaryRepository,
   reportingService?: ReportingService,
   dashboardService?: DashboardService,
+  healthcareEventRepository?: HealthcareEventRepository,
+  healthcareTagRepository?: HealthcareTagRepository,
 ) => {
   const app = express();
 
@@ -48,6 +54,8 @@ export const createApp = (
   if (monthlyPapSummaryRepository) app.use("/api/monthly-pap-summaries", createMonthlyPapSummariesRouter(monthlyPapSummaryRepository));
   if (reportingService) app.use("/api/reports", createReportsRouter(reportingService));
   if (dashboardService) app.use("/api/dashboard", createDashboardRouter(dashboardService));
+  if (healthcareEventRepository) app.use("/api/healthcare-events", createHealthcareEventsRouter(healthcareEventRepository));
+  if (healthcareTagRepository) app.use("/api/healthcare-tags", createHealthcareTagsRouter(healthcareTagRepository));
 
   app.use(express.static("dist/public"));
 

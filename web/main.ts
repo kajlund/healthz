@@ -7,10 +7,11 @@ import "./pap-page.js";
 import "./monthly-summaries-page.js";
 import "./reports-page.js";
 import "./dashboard-page.js";
+import "./journal-page.js";
 import "./styles.css";
 
-type Route = "dashboard" | "weight" | "blood-pressure" | "sleep" | "pap" | "summary-sleep" | "summary-pap" | "report-monthly" | "report-year";
-type Category = "dashboard" | "measurements" | "summaries" | "reports";
+type Route = "dashboard" | "weight" | "blood-pressure" | "sleep" | "pap" | "summary-sleep" | "summary-pap" | "report-monthly" | "report-year" | "journal";
+type Category = "dashboard" | "measurements" | "summaries" | "reports" | "journal";
 
 const navigation: Array<{ category: Category; label: string; items: Array<{ route: Route; label: string; hash: string }> }> = [
   { category: "dashboard", label: "Dashboard", items: [{ route: "dashboard", label: "Dashboard", hash: "/" }] },
@@ -28,6 +29,7 @@ const navigation: Array<{ category: Category; label: string; items: Array<{ rout
     { route: "report-monthly", label: "Monthly overview", hash: "#/reports/monthly" },
     { route: "report-year", label: "Year comparison", hash: "#/reports/year-comparison" },
   ] },
+  { category: "journal", label: "Journal", items: [{ route: "journal", label: "Journal", hash: "#/journal" }] },
 ];
 export const routeFromHash = (): Route => { const path = window.location.hash.split("?")[0]; if (!path) return "dashboard"; return navigation.flatMap(({ items }) => items).find(({ hash }) => hash === path)?.route ?? "weight"; };
 
@@ -101,7 +103,7 @@ class HealthzApp extends LitElement {
   private handleRouteChange = () => { this.route = routeFromHash(); this.mobileMenuOpen = false; };
   private handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && this.mobileMenuOpen) { this.mobileMenuOpen = false; this.querySelector<HTMLButtonElement>(".menu-toggle")?.focus(); } };
   private handleOutsidePointer = (event: PointerEvent) => { if (this.mobileMenuOpen && !this.querySelector(".navigation-shell")?.contains(event.target as Node)) this.mobileMenuOpen = false; };
-  private get category(): Category { return this.route === "dashboard" ? "dashboard" : this.route.startsWith("summary-") ? "summaries" : this.route.startsWith("report-") ? "reports" : "measurements"; }
+  private get category(): Category { return this.route === "dashboard" ? "dashboard" : this.route === "journal" ? "journal" : this.route.startsWith("summary-") ? "summaries" : this.route.startsWith("report-") ? "reports" : "measurements"; }
   private destination(route: Route) { return navigation.flatMap(({ items }) => items).find((item) => item.route === route)!; }
   private categoryDestination(category: Category) { if (category === this.category) return this.destination(this.route).hash; return navigation.find((item) => item.category === category)!.items[0]!.hash; }
   private renderNavigationItems(category: Category, mobile = false) {
@@ -271,7 +273,7 @@ class HealthzApp extends LitElement {
         <a class="brand" href="/" aria-label="Healthz home"><span>H</span>Healthz</a>
         <div class="navigation-shell">
           <button class="menu-toggle" type="button" aria-label="Toggle navigation menu" aria-expanded=${this.mobileMenuOpen ? "true" : "false"} aria-controls="mobile-navigation" @click=${() => (this.mobileMenuOpen = !this.mobileMenuOpen)}><span></span><span></span><span></span></button>
-          <nav class="primary-nav" aria-label="Health categories">${navigation.map((item) => html`<a href=${this.categoryDestination(item.category)} class=${this.category === item.category ? "active" : ""}>${item.label}</a>`)}</nav>
+          <nav class="primary-nav" aria-label="Health categories">${navigation.map((item) => html`<a href=${this.categoryDestination(item.category)} aria-current=${this.category === item.category ? "page" : nothing} class=${this.category === item.category ? "active" : ""}>${item.label}</a>`)}</nav>
           <nav id="mobile-navigation" class=${`mobile-nav ${this.mobileMenuOpen ? "open" : ""}`} aria-label="Health navigation">${navigation.map((group) => html`<section><strong>${group.label}</strong>${this.renderNavigationItems(group.category, true)}</section>`)}</nav>
         </div>
         <div class="header-meta"><span class="status-dot"></span>Personal health log</div>
@@ -280,7 +282,7 @@ class HealthzApp extends LitElement {
       ${this.category === "measurements" ? html`<nav class="secondary-nav" aria-label="Measurements">${this.renderNavigationItems("measurements")}</nav>` : nothing}
       ${this.category === "reports" ? html`<nav class="secondary-nav" aria-label="Reports">${this.renderNavigationItems("reports")}</nav>` : nothing}
 
-      ${this.route === "dashboard" ? html`<dashboard-page></dashboard-page>` : this.route === "weight" ? html`<main>
+      ${this.route === "dashboard" ? html`<dashboard-page></dashboard-page>` : this.route === "journal" ? html`<journal-page></journal-page>` : this.route === "weight" ? html`<main>
         <section class="page-heading">
           <div>
             <span class="eyebrow">Measurements</span>

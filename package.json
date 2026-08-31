@@ -19,6 +19,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed:healthcare-tags": "tsx src/seed-healthcare-tags.ts",
     "import:history": "tsx src/import-history.ts"
   },
   "dependencies": {

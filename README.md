@@ -30,6 +30,7 @@ The root route is the Dashboard. Its optional browser-local reference month is s
 - `npm run typecheck` - check TypeScript without emitting files
 - `npm run db:generate` - generate migrations after schema changes
 - `npm run db:migrate` - apply generated migrations
+- `npm run db:seed:healthcare-tags` - idempotently create the optional initial Journal tags
 - `npm run import:history -- <pap|ohealth> <file> <--dry-run|--apply>` - safely import historical PAP or staged OHealth sleep data
 
 ## Historical imports
@@ -51,6 +52,50 @@ npm run import:history -- ohealth ./data/health_connect_export.db --apply
 Apply mode inserts only records whose unique Healthz date is unused. It never updates or replaces an existing record, uses one PostgreSQL transaction, rolls back on an unexpected or concurrent conflict, and is safe to run again. Invalid source rows prevent apply mode from starting. Expected same-date conflicts are reported and left untouched.
 
 PAP service dates become `therapyDate`; `healthDate` is the following calendar day. Blank PAP measurements remain `null`, including on zero-usage days. OHealth sleep dates use the session's local end date, and total sleep is the sum of light, deep, and REM stages. Only sessions with detailed stages are candidates. Every OHealth run writes a sibling `*.stage-less-review.csv` report for sessions excluded because stages are absent. `YEAR_AGGREGATED.csv` is explicitly ignored.
+
+## Healthcare journal
+
+The Journal is available at `#/journal`. It records calendar-based healthcare events without assigning a single exclusive event type. An event contains a required date and title, optional local wall-clock time, description, provider/person, organization and location, plus zero or more managed tags. Dates remain `YYYY-MM-DD` calendar values and are never converted through UTC; an unknown time remains `null` rather than midnight.
+
+Tags are shared records connected through a many-to-many junction. Display names are trimmed and repeated whitespace is collapsed. A separate lowercase `normalizedName` prevents case-insensitive duplicates while preserving the readable name. Tags are not inferred from event text, and an in-use tag cannot be deleted.
+
+Apply the journal migration and optionally seed the initial tag vocabulary:
+
+```sh
+npm run db:migrate
+npm run db:seed:healthcare-tags
+```
+
+The seed command is idempotent and provides Doctor, Dentistry, Physiotherapy, Blood donation, Vaccination, Psychotherapy, Medication, Ophthalmology, Laboratory, Imaging, Surgery and Check-up. The Journal remains usable without running the seed because tags can be created in its tag manager.
+
+Event endpoints:
+
+- `POST /api/healthcare-events`
+- `GET /api/healthcare-events/:id`
+- `PUT /api/healthcare-events/:id`
+- `DELETE /api/healthcare-events/:id`
+- `GET /api/healthcare-events?from=YYYY-MM-DD&to=YYYY-MM-DD&search=text&tagIds=id1,id2&tagMatch=any&page=1&pageSize=25`
+
+`from` and `to` are inclusive. Search covers the event title, description, provider, organization and location. `tagMatch=any` requires at least one selected tag; `tagMatch=all` requires every selected tag. Filters combine with AND, page size is limited to 100, and responses contain `items`, `total`, `page` and `pageSize`.
+
+Create or update example:
+
+```json
+{
+  "eventDate": "2025-10-14",
+  "eventTime": "09:30",
+  "title": "Doctor visit and flu vaccination",
+  "description": "Routine appointment",
+  "provider": "Dr Example",
+  "organization": "Example clinic",
+  "location": "Helsinki",
+  "tagIds": ["tag-uuid-1", "tag-uuid-2"]
+}
+```
+
+Tag endpoints are `GET` and `POST /api/healthcare-tags`, plus `PUT` and `DELETE /api/healthcare-tags/:id`. Tag listings include `usageCount`.
+
+Applied Journal filters are stored in the hash URL, so direct loading and browser Back/Forward restore them. The Dashboard includes the latest event on or before the browser's current local date and the next event after it. The browser sends that calendar date explicitly to the dashboard API; no date-only event is interpreted as midnight.
 
 ## Body-weight API
 

@@ -1,4 +1,4 @@
-import { date, index, integer, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { date, index, integer, numeric, pgTable, primaryKey, text, time, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const bodyMeasurements = pgTable(
   "body_measurements",
@@ -115,5 +115,49 @@ export const monthlyPapSummaries = pgTable(
   (table) => [
     uniqueIndex("monthly_pap_summaries_summary_month_unique").on(table.summaryMonth),
     index("monthly_pap_summaries_summary_month_index").on(table.summaryMonth),
+  ],
+);
+
+export const healthcareEvents = pgTable(
+  "healthcare_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventDate: date("event_date", { mode: "string" }).notNull(),
+    eventTime: time("event_time", { withTimezone: false, precision: 0 }),
+    title: text("title").notNull(),
+    description: text("description"),
+    provider: text("provider"),
+    organization: text("organization"),
+    location: text("location"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("healthcare_events_date_index").on(table.eventDate),
+    index("healthcare_events_date_time_index").on(table.eventDate, table.eventTime),
+  ],
+);
+
+export const healthcareTags = pgTable(
+  "healthcare_tags",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [uniqueIndex("healthcare_tags_normalized_name_unique").on(table.normalizedName)],
+);
+
+export const healthcareEventTags = pgTable(
+  "healthcare_event_tags",
+  {
+    healthcareEventId: uuid("healthcare_event_id").notNull().references(() => healthcareEvents.id, { onDelete: "cascade" }),
+    healthcareTagId: uuid("healthcare_tag_id").notNull().references(() => healthcareTags.id, { onDelete: "restrict" }),
+  },
+  (table) => [
+    primaryKey({ name: "healthcare_event_tags_pk", columns: [table.healthcareEventId, table.healthcareTagId] }),
+    index("healthcare_event_tags_tag_index").on(table.healthcareTagId),
   ],
 );

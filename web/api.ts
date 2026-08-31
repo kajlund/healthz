@@ -185,6 +185,31 @@ export interface DashboardResponse {
     sleep: Pick<SleepRecord, "sleepDate" | "totalSleepMinutes" | "sleepScore"> | null;
     pap: Pick<PapRecord, "therapyDate" | "healthDate" | "usageMinutes" | "eventsPerHour" | "totalScore"> | null;
   };
+  healthcare: { latestPast: HealthcareEvent | null; nextFuture: HealthcareEvent | null };
   currentMonth: MonthlyReport; previousMonthData: MonthlyReport; trend: MonthlyReport[];
 }
-export const dashboardApi = { get: (month: string, signal?: AbortSignal) => request<DashboardResponse>(`/api/dashboard?month=${encodeURIComponent(month)}`, { signal }) };
+export const dashboardApi = { get: (month: string, today: string, currentTime: string, signal?: AbortSignal) => request<DashboardResponse>(`/api/dashboard?month=${encodeURIComponent(month)}&today=${encodeURIComponent(today)}&currentTime=${encodeURIComponent(currentTime)}`, { signal }) };
+
+export interface HealthcareTag { id: string; name: string; usageCount: number; createdAt: string; updatedAt: string; }
+export interface HealthcareEvent {
+  id: string; eventDate: string; eventTime: string | null; title: string; description: string | null;
+  provider: string | null; organization: string | null; location: string | null;
+  tags: Array<Pick<HealthcareTag, "id" | "name">>; createdAt: string; updatedAt: string;
+}
+export interface HealthcareEventInput {
+  eventDate: string; eventTime: string | null; title: string; description: string | null;
+  provider: string | null; organization: string | null; location: string | null; tagIds: string[];
+}
+export interface HealthcareEventPage { items: HealthcareEvent[]; total: number; latestEventDate: string | null; page: number; pageSize: number; }
+export const healthcareTagsApi = {
+  list: () => request<HealthcareTag[]>("/api/healthcare-tags"),
+  create: (name: string) => request<HealthcareTag>("/api/healthcare-tags", { method: "POST", body: JSON.stringify({ name }) }),
+  update: (id: string, name: string) => request<HealthcareTag>(`/api/healthcare-tags/${id}`, { method: "PUT", body: JSON.stringify({ name }) }),
+  delete: (id: string) => request<void>(`/api/healthcare-tags/${id}`, { method: "DELETE" }),
+};
+export const healthcareEventsApi = {
+  list: (query: string, signal?: AbortSignal) => request<HealthcareEventPage>(`/api/healthcare-events${query ? `?${query}` : ""}`, { signal }),
+  create: (input: HealthcareEventInput) => request<HealthcareEvent>("/api/healthcare-events", { method: "POST", body: JSON.stringify(input) }),
+  update: (id: string, input: HealthcareEventInput) => request<HealthcareEvent>(`/api/healthcare-events/${id}`, { method: "PUT", body: JSON.stringify(input) }),
+  delete: (id: string) => request<void>(`/api/healthcare-events/${id}`, { method: "DELETE" }),
+};

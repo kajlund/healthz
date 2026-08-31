@@ -12,9 +12,12 @@ import { ReportingService } from "./reports/service.js";
 import { sleepRecordRepository } from "./sleep-records/repository.js";
 import { dashboardLatestSource } from "./dashboard/data-source.js";
 import { DashboardService } from "./dashboard/service.js";
+import { healthcareEventRepository } from "./healthcare-events/repository.js";
+import { healthcareTagRepository } from "./healthcare-tags/repository.js";
 
 const reportingService = new ReportingService(reportingDataSource);
-const app = createApp(bodyMeasurementRepository, bloodPressureReadingRepository, sleepRecordRepository, papRecordRepository, monthlySleepSummaryRepository, monthlyPapSummaryRepository, reportingService, new DashboardService(reportingService, dashboardLatestSource));
+const dashboardService = new DashboardService(reportingService, dashboardLatestSource, healthcareEventRepository);
+const app = createApp(bodyMeasurementRepository, bloodPressureReadingRepository, sleepRecordRepository, papRecordRepository, monthlySleepSummaryRepository, monthlyPapSummaryRepository, reportingService, dashboardService, healthcareEventRepository, healthcareTagRepository);
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, environment: env.NODE_ENV }, "Healthz server started");
