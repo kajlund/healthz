@@ -305,15 +305,15 @@ class HealthzApp extends LitElement {
             ${this.renderList()}
           </section>
 
-          <aside class="entry-card">
+          <aside class="entry-card daily-entry-card">
             <span class="eyebrow">${this.editingId ? "Edit entry" : "New entry"}</span>
             <h2>${this.editingId ? "Update measurement" : "Add measurement"}</h2>
             <p>${this.editingId ? "Change the details for this entry." : "Record one measurement per day."}</p>
 
-            <form @submit=${this.submit}>
-              <label>Date<input type="date" required .value=${this.measuredOn} @input=${(event: InputEvent) => (this.measuredOn = (event.target as HTMLInputElement).value)} /></label>
-              <label>Weight <span>kg</span><div class="weight-input"><input type="number" required min="0.01" max="9999.99" step="0.01" inputmode="decimal" placeholder="82.45" .value=${this.weightKg} @input=${(event: InputEvent) => (this.weightKg = (event.target as HTMLInputElement).value)} /><span>kg</span></div></label>
-              <label>Notes <span>optional</span><textarea maxlength="2000" rows="3" placeholder="Morning, before breakfast…" .value=${this.notes} @input=${(event: InputEvent) => (this.notes = (event.target as HTMLTextAreaElement).value)}></textarea></label>
+            <form class="compact-entry-form" @submit=${this.submit}>
+              <label>Date <span class="required-marker" aria-hidden="true">*</span><input type="date" required .value=${this.measuredOn} @input=${(event: InputEvent) => (this.measuredOn = (event.target as HTMLInputElement).value)} /></label>
+              <label>Weight <span>kg · <span class="required-marker" aria-hidden="true">*</span></span><div class="weight-input"><input type="number" required min="0.01" max="9999.99" step="0.01" inputmode="decimal" placeholder="82.45" .value=${this.weightKg} @input=${(event: InputEvent) => (this.weightKg = (event.target as HTMLInputElement).value)} /><span>kg</span></div></label>
+              <label>Notes<textarea maxlength="2000" rows="2" placeholder="Morning, before breakfast…" .value=${this.notes} @input=${(event: InputEvent) => (this.notes = (event.target as HTMLTextAreaElement).value)}></textarea></label>
               <button class="primary-button" type="submit" ?disabled=${this.saving}>${this.saving ? "Saving…" : this.editingId ? "Save changes" : "Add measurement"}</button>
               ${this.editingId ? html`<button class="cancel-button" type="button" @click=${this.resetForm}>Cancel editing</button>` : nothing}
             </form>

@@ -247,19 +247,19 @@ export class BloodPressurePage extends LitElement {
             ${this.renderList()}
           </section>
 
-          <aside class="entry-card">
+          <aside class="entry-card daily-entry-card">
             <span class="eyebrow">${this.editingId ? "Edit entry" : "New entry"}</span>
             <h2>${this.editingId ? "Update reading" : "Add reading"}</h2>
             <p>${this.editingId ? "Change the details for this reading." : "Multiple readings per day are welcome."}</p>
 
-            <form @submit=${this.submit}>
-              <label>Date & time<input type="datetime-local" required .value=${this.measuredAt} @input=${(event: InputEvent) => (this.measuredAt = (event.target as HTMLInputElement).value)} /></label>
+            <form class="compact-entry-form" @submit=${this.submit}>
+              <label>Date & time <span class="required-marker" aria-hidden="true">*</span><input type="datetime-local" required .value=${this.measuredAt} @input=${(event: InputEvent) => (this.measuredAt = (event.target as HTMLInputElement).value)} /></label>
               <div class="vitals-inputs">
-                <label>Systolic<input type="number" required min="1" step="1" inputmode="numeric" placeholder="120" .value=${this.systolic} @input=${(event: InputEvent) => (this.systolic = (event.target as HTMLInputElement).value)} /></label>
-                <label>Diastolic<input type="number" required min="1" step="1" inputmode="numeric" placeholder="80" .value=${this.diastolic} @input=${(event: InputEvent) => (this.diastolic = (event.target as HTMLInputElement).value)} /></label>
+                <label>Systolic <span class="required-marker" aria-hidden="true">*</span><input type="number" required min="1" step="1" inputmode="numeric" placeholder="120" .value=${this.systolic} @input=${(event: InputEvent) => (this.systolic = (event.target as HTMLInputElement).value)} /></label>
+                <label>Diastolic <span class="required-marker" aria-hidden="true">*</span><input type="number" required min="1" step="1" inputmode="numeric" placeholder="80" .value=${this.diastolic} @input=${(event: InputEvent) => (this.diastolic = (event.target as HTMLInputElement).value)} /></label>
               </div>
-              <label>Pulse <span>optional · bpm</span><input type="number" min="1" step="1" inputmode="numeric" placeholder="64" .value=${this.pulse} @input=${(event: InputEvent) => (this.pulse = (event.target as HTMLInputElement).value)} /></label>
-              <label>Notes <span>optional</span><textarea maxlength="2000" rows="3" placeholder="Seated, after resting…" .value=${this.notes} @input=${(event: InputEvent) => (this.notes = (event.target as HTMLTextAreaElement).value)}></textarea></label>
+              <label>Pulse <span>bpm</span><input type="number" min="1" step="1" inputmode="numeric" placeholder="64" .value=${this.pulse} @input=${(event: InputEvent) => (this.pulse = (event.target as HTMLInputElement).value)} /></label>
+              <label>Notes<textarea maxlength="2000" rows="2" placeholder="Seated, after resting…" .value=${this.notes} @input=${(event: InputEvent) => (this.notes = (event.target as HTMLTextAreaElement).value)}></textarea></label>
               <button class="primary-button" type="submit" ?disabled=${this.saving}>${this.saving ? "Saving…" : this.editingId ? "Save changes" : "Add reading"}</button>
               ${this.editingId ? html`<button class="cancel-button" type="button" @click=${this.resetForm}>Cancel editing</button>` : nothing}
             </form>

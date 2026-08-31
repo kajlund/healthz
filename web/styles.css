@@ -130,6 +130,20 @@ h2 { margin: 5px 0 0; font-family: Georgia, serif; font-size: 25px; font-weight:
 .entry-card { position: sticky; top: 20px; padding: 27px 26px; }
 .entry-card > p { margin: 8px 0 24px; color: var(--muted); font-size: 13px; }
 form { display: grid; gap: 17px; }
+.daily-entry-card { padding: 22px 23px; }
+.daily-entry-card > p { margin: 6px 0 15px; }
+.daily-entry-card h2 + form { margin-top: 14px; }
+.compact-entry-form { gap: 12px; }
+.compact-entry-form label { gap: 3px; }
+.compact-entry-form input, .compact-entry-form select { height: 40px; }
+.compact-entry-form textarea { min-height: 64px; }
+.compact-entry-form .duration-field legend { margin-bottom: 3px; }
+.compact-entry-form .form-help { padding-block: 7px; line-height: 1.4; }
+.compact-form-row { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.compact-form-row > label { min-width: 0; }
+.compact-entry-form .duration-inputs { column-gap: 9px; }
+.compact-entry-form .vitals-inputs { gap: 20px; }
+.required-marker { color: var(--danger); }
 .duration-field { min-width: 0; margin: 0; padding: 0; border: 0; }
 .duration-field legend { margin-bottom: 7px; color: #425047; font-size: 12px; font-weight: 750; }
 .duration-field legend span { color: #919b93; font-size: 10px; font-weight: 500; }
