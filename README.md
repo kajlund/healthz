@@ -30,6 +30,27 @@ The root route is the Dashboard. Its optional browser-local reference month is s
 - `npm run typecheck` - check TypeScript without emitting files
 - `npm run db:generate` - generate migrations after schema changes
 - `npm run db:migrate` - apply generated migrations
+- `npm run import:history -- <pap|ohealth> <file> <--dry-run|--apply>` - safely import historical PAP or staged OHealth sleep data
+
+## Historical imports
+
+Always run a dry-run first:
+
+```sh
+npm run import:history -- pap ./data/SLEEP_RECORD.csv --dry-run
+npm run import:history -- ohealth ./data/health_connect_export.db --dry-run
+```
+
+After reviewing importable rows, exact duplicates, date conflicts, invalid rows, zero-usage PAP days, excluded OHealth sessions, date ranges, boundary shifts, and the values to be written, apply with:
+
+```sh
+npm run import:history -- pap ./data/SLEEP_RECORD.csv --apply
+npm run import:history -- ohealth ./data/health_connect_export.db --apply
+```
+
+Apply mode inserts only records whose unique Healthz date is unused. It never updates or replaces an existing record, uses one PostgreSQL transaction, rolls back on an unexpected or concurrent conflict, and is safe to run again. Invalid source rows prevent apply mode from starting. Expected same-date conflicts are reported and left untouched.
+
+PAP service dates become `therapyDate`; `healthDate` is the following calendar day. Blank PAP measurements remain `null`, including on zero-usage days. OHealth sleep dates use the session's local end date, and total sleep is the sum of light, deep, and REM stages. Only sessions with detailed stages are candidates. Every OHealth run writes a sibling `*.stage-less-review.csv` report for sessions excluded because stages are absent. `YEAR_AGGREGATED.csv` is explicitly ignored.
 
 ## Body-weight API
 

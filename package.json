@@ -18,7 +18,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "import:history": "tsx src/import-history.ts"
   },
   "dependencies": {
     "chart.js": "^4.5.1",
