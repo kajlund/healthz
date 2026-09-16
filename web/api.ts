@@ -87,6 +87,10 @@ export const bloodPressureReadingsApi = {
 
 export interface SleepRecord {
   id: string;
+  detailMode: "summary" | "sessions";
+  awakeCount: number | null;
+  stageCoverage: "complete" | "partial" | "none";
+  sessions: SleepSession[];
   sleepDate: string;
   totalSleepMinutes: number;
   awakeMinutes: number | null;
@@ -100,7 +104,26 @@ export interface SleepRecord {
   updatedAt: string;
 }
 
-export type SleepRecordInput = Omit<SleepRecord, "id" | "createdAt" | "updatedAt">;
+export type { SleepRecordInput, SleepSessionInput } from "../src/sleep-records/schemas.js";
+import type { SleepRecordInput } from "../src/sleep-records/schemas.js";
+export interface SleepSession {
+  id: string;
+  sleepRecordId: string;
+  sessionType: "main-sleep" | "nap" | "other";
+  label: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  totalSleepMinutes: number;
+  awakeMinutes: number | null;
+  awakeCount: number | null;
+  lightMinutes: number | null;
+  deepMinutes: number | null;
+  remMinutes: number | null;
+  sortOrder: number;
+  source: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const sleepRecordsApi = {
   list: () => request<SleepRecord[]>("/api/sleep-records"),

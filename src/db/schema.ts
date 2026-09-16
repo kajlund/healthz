@@ -1,4 +1,5 @@
-import { date, index, integer, numeric, pgTable, primaryKey, text, time, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { check, date, index, integer, numeric, pgTable, primaryKey, text, time, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const bodyMeasurements = pgTable(
   "body_measurements",
@@ -33,6 +34,8 @@ export const sleepRecords = pgTable(
   {
     id: uuid("id").defaultRandom().primaryKey(),
     sleepDate: date("sleep_date", { mode: "string" }).notNull(),
+    detailMode: text("detail_mode", { enum: ["summary", "sessions"] }).default("summary").notNull(),
+    awakeCount: integer("awake_count"),
     totalSleepMinutes: integer("total_sleep_minutes").notNull(),
     awakeMinutes: integer("awake_minutes"),
     lightMinutes: integer("light_minutes"),
@@ -47,6 +50,38 @@ export const sleepRecords = pgTable(
   (table) => [
     uniqueIndex("sleep_records_sleep_date_unique").on(table.sleepDate),
     index("sleep_records_sleep_date_index").on(table.sleepDate),
+    check("sleep_records_detail_mode_check", sql`${table.detailMode} in ('summary', 'sessions')`),
+    check("sleep_records_awake_count_check", sql`${table.awakeCount} >= 0`),
+  ],
+);
+
+export const sleepSessions = pgTable(
+  "sleep_sessions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    sleepRecordId: uuid("sleep_record_id").notNull().references(() => sleepRecords.id, { onDelete: "cascade" }),
+    sessionType: text("session_type", { enum: ["main-sleep", "nap", "other"] }).notNull(),
+    label: text("label"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    totalSleepMinutes: integer("total_sleep_minutes").notNull(),
+    awakeMinutes: integer("awake_minutes"),
+    awakeCount: integer("awake_count"),
+    lightMinutes: integer("light_minutes"),
+    deepMinutes: integer("deep_minutes"),
+    remMinutes: integer("rem_minutes"),
+    sortOrder: integer("sort_order").notNull(),
+    source: text("source"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index("sleep_sessions_parent_order_index").on(table.sleepRecordId, table.sortOrder, table.startedAt, table.id),
+    check("sleep_sessions_type_check", sql`${table.sessionType} in ('main-sleep', 'nap', 'other')`),
+    check("sleep_sessions_total_check", sql`${table.totalSleepMinutes} > 0`),
+    check("sleep_sessions_measurements_check", sql`${table.awakeMinutes} >= 0 and ${table.awakeCount} >= 0 and ${table.lightMinutes} >= 0 and ${table.deepMinutes} >= 0 and ${table.remMinutes} >= 0`),
+    check("sleep_sessions_order_check", sql`${table.sortOrder} >= 0`),
+    check("sleep_sessions_times_check", sql`${table.endedAt} > ${table.startedAt}`),
   ],
 );
 

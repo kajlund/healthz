@@ -264,10 +264,11 @@ report-chart canvas { max-width: 100%; }
 .journal-summary strong { font-family: Georgia, serif; font-size: 23px; font-weight: 500; overflow-wrap: anywhere; }
 .journal-workspace { grid-template-columns: minmax(0, 1fr) 410px; margin-top: 0; }
 .journal-list { padding: 0 28px; }
-.journal-event { min-width: 0; padding: 20px 0; display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 18px; border-top: 1px solid #e8ece7; }
+.journal-event { min-width: 0; padding: 20px 0; display: grid; grid-template-columns: 120px minmax(0, 1fr) auto; gap: 18px; border-top: 1px solid #e8ece7; }
 .journal-event:first-child { border-top: 0; }
-.journal-event-date { display: grid; align-content: start; gap: 5px; }
-.journal-event-date strong { font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
+.journal-event-date { display: grid; align-content: start; gap: 4px; }
+.journal-event-date strong { font-family: Georgia, serif; font-size: 18px; font-weight: 500; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.journal-event-date strong small { font-family: inherit; font-size: 13px; color: var(--muted); font-weight: 400; }
 .journal-event-date span { color: var(--muted); font-size: 11px; }
 .journal-event-body { min-width: 0; }
 .journal-event-body h3 { margin: 0 0 9px; font-family: Georgia, serif; font-size: 20px; font-weight: 500; overflow-wrap: anywhere; }

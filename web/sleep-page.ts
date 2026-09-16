@@ -33,6 +33,7 @@ export class SleepPage extends LitElement {
   private toMinutes(hours: string, minutes: string, optional: true): number | null;
   private toMinutes(hours: string, minutes: string, optional = false): number | null { if (optional && hours === "" && minutes === "") return null; return Number(hours || 0) * 60 + Number(minutes || 0); }
   private edit(record: SleepRecord) {
+    if (record.detailMode === "sessions") { this.error = "Session-based records cannot be edited in this summary form yet."; return; }
     this.editingId = record.id; this.sleepDate = record.sleepDate;
     [this.totalHours, this.totalMinutes] = durationParts(record.totalSleepMinutes);
     [this.awakeHours, this.awakeMinutes] = durationParts(record.awakeMinutes); [this.lightHours, this.lightMinutes] = durationParts(record.lightMinutes);
@@ -43,6 +44,9 @@ export class SleepPage extends LitElement {
   private async submit(event: SubmitEvent) {
     event.preventDefault(); this.saving = true; this.error = null;
     const input: SleepRecordInput = { sleepDate: this.sleepDate, totalSleepMinutes: this.toMinutes(this.totalHours, this.totalMinutes), awakeMinutes: this.toMinutes(this.awakeHours, this.awakeMinutes, true), lightMinutes: this.toMinutes(this.lightHours, this.lightMinutes, true), deepMinutes: this.toMinutes(this.deepHours, this.deepMinutes, true), remMinutes: this.toMinutes(this.remHours, this.remMinutes, true), sleepScore: this.sleepScore === "" ? null : Number(this.sleepScore), source: this.source.trim(), notes: this.notes.trim() || null };
+    // Preserve the value until the form gains an awakenings input. Omit detailMode
+    // so a concurrent API conversion to sessions cannot be silently reversed.
+    input.awakeCount = this.records.find(({ id }) => id === this.editingId)?.awakeCount ?? null;
     try { if (this.editingId) await sleepRecordsApi.update(this.editingId, input); else await sleepRecordsApi.create(input); this.resetForm(); await this.loadRecords(); }
     catch (error) { this.error = error instanceof Error ? error.message : "Unable to save sleep record."; } finally { this.saving = false; }
   }

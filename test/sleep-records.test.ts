@@ -9,7 +9,7 @@ import type { PapRecordRepository } from "../src/pap-records/repository.js";
 
 const firstId = "70cd081d-2196-4cf4-b96e-de788420fe28";
 const secondId = "fef5aa30-bb27-4525-9f66-e12dd16432e0";
-const record = (overrides: Partial<SleepRecord> = {}): SleepRecord => ({ id: firstId, sleepDate: "2026-08-28", totalSleepMinutes: 444, awakeMinutes: 31, lightMinutes: 250, deepMinutes: 90, remMinutes: 100, sleepScore: 86, source: "manual", notes: "Rested", createdAt: new Date("2026-08-28T08:00:00Z"), updatedAt: new Date("2026-08-28T08:00:00Z"), ...overrides });
+const record = (overrides: Partial<SleepRecord> = {}): SleepRecord => ({ id: firstId, detailMode: "summary", awakeCount: null, sessions: [], stageCoverage: "complete", sleepDate: "2026-08-28", totalSleepMinutes: 444, awakeMinutes: 31, lightMinutes: 250, deepMinutes: 90, remMinutes: 100, sleepScore: 86, source: "manual", notes: "Rested", createdAt: new Date("2026-08-28T08:00:00Z"), updatedAt: new Date("2026-08-28T08:00:00Z"), ...overrides });
 const unused = { create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() };
 const bodyRepository = unused as BodyMeasurementRepository;
 const pressureRepository = { create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() } as BloodPressureReadingRepository;
