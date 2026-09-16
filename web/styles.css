@@ -83,24 +83,17 @@ h2 { margin: 5px 0 0; font-family: Georgia, serif; font-size: 25px; font-weight:
 .weight-cell strong { font-family: Georgia, serif; font-size: 21px; font-weight: 500; }
 .weight-cell small { color: var(--muted); font-family: inherit; font-size: 13px; }
 .blood-pressure-grid { grid-template-columns: 1.25fr 1fr .65fr 1.2fr auto; }
-.sleep-workspace { grid-template-columns: minmax(0, 1fr) 390px; }
 .sleep-grid { grid-template-columns: 1fr 1fr 1.8fr .75fr auto; }
 .sleep-total, .stage-cell, .source-cell { display: grid; gap: 4px; font-size: 12px; }
 .sleep-total strong { font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
 .sleep-total small, .stage-cell small, .source-cell small { color: var(--muted); }
 .sleep-page .entry-card { position: static; }
-.sleep-page .sleep-mode-choice { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
-.sleep-mode-choice button, .sleep-add-session { min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--accent); font-size: 13px; font-weight: 700; }
-.sleep-mode-choice button[aria-pressed="true"] { background: var(--soft); border-color: var(--accent); box-shadow: inset 0 -2px var(--accent); }
-.sleep-page .sleep-mode-help { margin: 12px 0; font-size: 13px; line-height: 1.5; }
 .sleep-form-fields { display: grid; gap: 14px; min-width: 0; margin: 0; padding: 0; border: 0; }
 .sleep-session-card { min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: white; }
-.sleep-session-card h3, .sleep-preview h3, .sleep-mode-confirm h3 { margin: 0 0 8px; font-size: 15px; line-height: 1.5; }
 .sleep-session-actions { display: flex; flex-wrap: wrap; gap: 2px 8px; margin-bottom: 10px; }
 .sleep-session-actions button { min-height: 40px; padding: 6px 4px; }
 .sleep-page button:disabled { cursor: default; }
 .sleep-fields-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.sleep-page .sleep-time-fields { grid-template-columns: minmax(0, 1fr); margin-top: 14px; }
 .sleep-page input, .sleep-page select, .sleep-page textarea, .sleep-page label, .sleep-page fieldset { min-width: 0; max-width: 100%; }
 .sleep-page .duration-inputs { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 5px; }
 .sleep-page .duration-inputs input { padding-inline: 8px; }
@@ -110,14 +103,7 @@ h2 { margin: 5px 0 0; font-family: Georgia, serif; font-size: 25px; font-weight:
 .sleep-page details > summary { cursor: pointer; min-height: 36px; color: var(--accent); font-size: 13px; font-weight: 700; line-height: 1.5; }
 .sleep-page summary:focus-visible, .sleep-session-card h3:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .sleep-optional-details .sleep-help { margin-bottom: 14px; }
-.sleep-preview, .sleep-mode-confirm { padding: 14px; border: 1px solid #bfd2c3; border-radius: 10px; background: var(--soft); font-size: 12px; line-height: 1.5; }
-.sleep-preview dl { margin: 12px 0; }
-.sleep-preview dl > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; padding: 7px 0; border-bottom: 1px solid #ceddd1; }
-.sleep-preview dt { font-weight: 700; }
-.sleep-preview dd { margin: 0; }
 .sleep-preview p { margin: 8px 0 0; }
-.sleep-mode-confirm { margin-bottom: 14px; }
-.sleep-mode-confirm p { margin: 8px 0; }
 .sleep-save-status { margin: 8px 0; color: var(--accent); font-size: 13px; line-height: 1.5; }
 .sleep-save-status:empty { display: none; }
 .sleep-field-error { display: block; color: var(--danger); font-weight: 600; font-size: 12px; line-height: 1.4; }
@@ -454,23 +440,40 @@ report-chart canvas { max-width: 100%; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; }
 }
 
-/* The session editor needs more room than the familiar daily-summary form. */
-@media (min-width: 1101px) {
-  .sleep-workspace-sessions { grid-template-columns: minmax(0, 1fr) 500px; }
-  .sleep-workspace-sessions .sleep-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .sleep-workspace-sessions .list-head { display: none; }
-  .sleep-workspace-sessions .sleep-grid .actions { grid-column: 1 / -1; }
-}
 @media (min-width: 901px) and (max-width: 1100px) {
   .sleep-page .sleep-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .sleep-page .list-head { display: none; }
   .sleep-page .sleep-grid .actions { grid-column: 1 / -1; }
-  .sleep-page .sleep-fields-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 540px) {
   .sleep-page .sleep-fields-grid { grid-template-columns: minmax(0, 1fr); }
   .sleep-page .entry-card { padding: 20px 14px; }
   .sleep-page .sleep-session-card { padding: 12px; }
-  .sleep-page .sleep-mode-choice { grid-template-columns: minmax(0, 1fr); }
   .sleep-page .card-heading { flex-wrap: wrap; gap: 8px; }
+}
+
+/* Dedicated Sleep editor; list uses the existing measurement cards. */
+.sleep-editor-page { max-width: 860px; }
+.sleep-new-link { display: inline-flex; align-items: center; padding: 0 18px; text-decoration: none; }
+.sleep-page .actions a { display: inline-flex; align-items: center; min-height: 44px; }
+.sleep-add-session { min-height: 44px; padding: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--accent); font-size: 13px; font-weight: 700; }
+.sleep-daily-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 14px; }
+.sleep-session-content { display: grid; gap: 18px; }
+.sleep-session-type { max-width: 260px; margin-bottom: 18px; }
+.sleep-stage-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.sleep-awake-fields { margin: 0; padding: 14px; border: 1px solid var(--line); border-radius: 8px; }
+.sleep-awake-fields > legend { padding: 0 6px; font-size: 13px; font-weight: 700; }
+.sleep-session-card h3 { margin: 0 0 14px; font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+.sleep-session-actions { margin: 16px 0 0; }
+.sleep-session-actions button, .sleep-page details > summary { min-height: 44px; }
+.sleep-editor-page .compact-entry-form input, .sleep-editor-page .compact-entry-form select { height: 44px; }
+.sleep-daily-total { background: var(--soft); }
+.sleep-preview { padding: 14px; border: 1px solid #bfd2c3; border-radius: 10px; background: var(--soft); font-size: 13px; line-height: 1.5; }
+.sleep-sessions-heading { margin: 10px 0 0; font-size: 18px; }
+.sleep-editor-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.sleep-editor-actions button { min-height: 46px; min-width: 110px; margin: 0; padding: 10px 20px; }
+.sleep-page .list-card { margin-top: 24px; }
+.sleep-page a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 760px) {
+  .sleep-page .sleep-daily-fields, .sleep-page .sleep-fields-grid { grid-template-columns: minmax(0, 1fr); }
 }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { changeMode, draftFromRecord, durationDraft, localDateTime, measurementDraft, moveSession, newSession, newSleepDraft, previewSessions, removeSession, serializeLocalTime, validateDraft } from "../web/sleep-editor.js";
+import { draftFromRecord, durationDraft, localDateTime, measurementDraft, moveSession, newSession, newSleepDraft, previewSessions, removeSession, serializeLocalTime, validateDraft } from "../web/sleep-editor.js";
 import type { SleepRecord } from "../web/api.js";
 
 const record: SleepRecord = { id: "legacy", detailMode: "summary", sleepDate: "2026-09-15", totalSleepMinutes: 444, awakeMinutes: 18, awakeCount: null, lightMinutes: 240, deepMinutes: 100, remMinutes: 104, sleepScore: 86, source: "manual", notes: null, sessions: [], stageCoverage: "complete", createdAt: "2026-09-15T08:00:00Z", updatedAt: "2026-09-15T08:00:00Z" };
@@ -18,16 +18,17 @@ describe("Sleep editor drafts", () => {
     expect(validateDraft(draft).input).toMatchObject({ awakeMinutes: 18, awakeCount: 3 });
     expect(record.awakeCount).toBeNull();
   });
-  it("starts in summary mode and never fabricates a session from summary measurements", () => {
-    expect(newSleepDraft().detailMode).toBe("summary");
-    const draft = changeMode(draftFromRecord(record), "sessions");
+  it("starts with one blank expanded Main sleep session and preserves summaries", () => {
+    const draft = newSleepDraft();
+    expect(draft.detailMode).toBe("sessions");
     expect(draft.sessions).toHaveLength(1);
-    expect(draft.sessions[0]!.sessionType).toBe("main-sleep");
-    expect(draft.sessions[0]!.totalSleepMinutes).toEqual(durationDraft(null));
+    expect(draft.sessions[0]).toMatchObject({ sessionType: "main-sleep", detailsOpen: true, totalSleepMinutes: durationDraft(null) });
+    expect(draftFromRecord(record).sessions).toEqual([]);
+    expect(draftFromRecord(record).detailMode).toBe("summary");
     expect(validateDraft(draft).errors["sessions.0.totalSleepMinutes"]).toBeTruthy();
   });
   it("serializes main sleep plus a duration-only nap without parent aggregates or child IDs", () => {
-    const draft = changeMode(newSleepDraft(), "sessions");
+    const draft = newSleepDraft();
     draft.sessions = [main(), { ...newSession("nap"), totalSleepMinutes: durationDraft(40) }];
     const { input, errors } = validateDraft(draft);
     expect(errors).toEqual({});
@@ -52,18 +53,8 @@ describe("Sleep editor drafts", () => {
     expect(removeSession([first, second], first.key)).toEqual([second]);
     expect(removeSession([first], first.key)).toEqual([first]);
   });
-  it("prefills only calculated summary values and requires review without mutating the draft", () => {
-    const draft = changeMode(newSleepDraft(), "sessions");
-    draft.sessions = [main(), { ...newSession("nap"), totalSleepMinutes: durationDraft(40) }];
-    const next = changeMode(draft, "summary");
-    expect(next.reviewSummary).toBe(true);
-    expect(next.summary.totalSleepMinutes).toEqual(durationDraft(460));
-    expect(next.summary.awakeCount).toBe("");
-    expect(next.summary.lightMinutes).toEqual(durationDraft(null));
-    expect(draft.detailMode).toBe("sessions");
-  });
   it("reports field-specific errors for optional details and cross-midnight end ordering", () => {
-    const draft = changeMode(newSleepDraft(), "sessions");
+    const draft = newSleepDraft();
     draft.sessions = [{ ...main(), awakeCount: "-1", lightMinutes: { hours: "0", minutes: "60" }, startedAt: "2026-09-15T23:00", endedAt: "2026-09-15T06:00" }];
     expect(validateDraft(draft).errors["sessions.0.awakeCount"]).toBeTruthy();
     expect(validateDraft(draft).errors["sessions.0.lightMinutes"]).toBeTruthy();
@@ -71,7 +62,7 @@ describe("Sleep editor drafts", () => {
   });
   it("serializes local cross-midnight times as instants without changing sleepDate or duration", () => {
     vi.stubEnv("TZ", "Europe/Helsinki");
-    const draft = changeMode(newSleepDraft(), "sessions");
+    const draft = newSleepDraft();
     draft.sleepDate = "2026-09-16";
     draft.sessions = [{ ...main(), startedAt: "2026-09-15T23:00", endedAt: "2026-09-16T07:00" }];
     const { input } = validateDraft(draft);

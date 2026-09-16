@@ -126,6 +126,7 @@ export interface SleepSession {
 }
 
 export const sleepRecordsApi = {
+  get: (id: string) => request<SleepRecord>(`/api/sleep-records/${encodeURIComponent(id)}`),
   list: () => request<SleepRecord[]>("/api/sleep-records"),
   create: (input: SleepRecordInput) => request<SleepRecord>("/api/sleep-records", { method: "POST", body: JSON.stringify(input) }),
   update: (id: string, input: SleepRecordInput) => request<SleepRecord>(`/api/sleep-records/${id}`, { method: "PUT", body: JSON.stringify(input) }),

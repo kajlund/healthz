@@ -21,7 +21,12 @@ const setup = async (page: Page, initial: SleepRecord[] = [makeRecord(summaryInp
   await page.route("**/api/**", async (route) => {
     const req = route.request();
     if (!new URL(req.url()).pathname.startsWith("/api/sleep-records")) return route.fulfill({ json: [] });
-    if (req.method() === "GET") return route.fulfill({ json: records });
+    if (req.method() === "GET") {
+      const id = new URL(req.url()).pathname.slice("/api/sleep-records".length + 1);
+      if (!id) return route.fulfill({ json: records });
+      const record = records.find((record) => record.id === id);
+      return record ? route.fulfill({ json: record }) : route.fulfill({ status: 404, json: { error: { message: "Sleep record not found" } } });
+    }
     if (req.method() === "DELETE") { records = records.filter(({ id }) => !req.url().endsWith(id)); return route.fulfill({ status: 204 }); }
     const parsed = createSleepRecordSchema.safeParse(req.postDataJSON());
     if (!parsed.success) return route.fulfill({ status: 400, json: { error: { message: "Invalid request", details: parsed.error.issues } } });
@@ -40,178 +45,243 @@ const duration = async (scope: Page | Locator, name: string, hours: string, minu
   await scope.getByLabel(`${name} hours`, { exact: true }).fill(hours);
   await scope.getByLabel(`${name} minutes`, { exact: true }).fill(minutes);
 };
-const switchMode = async (page: Page, mode: "Individual sessions" | "Daily summary") => {
-  await page.getByRole("button", { name: mode, exact: true }).click();
-  await page.getByRole("button", { name: "Confirm mode change" }).click();
+const openNew = async (page: Page) => {
+  await page.getByRole("link", { name: "Add sleep", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Add sleep", exact: true })).toBeVisible();
+};
+const openEdit = async (page: Page) => {
+  await page.getByRole("link", { name: "Edit", exact: true }).first().click();
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeVisible();
+};
+const save = async (page: Page) => {
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Your sleep records" })).toBeVisible();
+};
+const stages = async (scope: Locator) => {
+  await duration(scope, "Deep", "1", "20");
+  await duration(scope, "Light", "4", "0");
+  await duration(scope, "REM", "1", "40");
 };
 
-test("legacy summary remains editable: unknown, zero, and three awakenings are distinct", async ({ page }) => {
-  const writes = await setup(page);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Daily summary", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByLabel("Times awake", { exact: true })).toHaveValue("");
-  await expect(page.getByLabel("Total time awake minutes", { exact: true })).toHaveValue("18");
-  await page.getByLabel("Times awake", { exact: true }).fill("0");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Sleep record saved");
-  expect(writes[0]).toMatchObject({ awakeCount: 0, awakeMinutes: 18 });
-  await expect(page.getByText("Times awake: 0", { exact: true })).toBeVisible();
-  await page.getByLabel("Times awake", { exact: true }).fill("3");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Sleep record saved");
-  expect(writes[1]).toMatchObject({ awakeCount: 3, awakeMinutes: 18 });
+test("direct new URL starts one blank expanded Main sleep in source field order", async ({ page }) => {
+  await setup(page, []);
+  await page.goto("/#/measurements/sleep/new");
+  await expect(page.getByRole("heading", { name: "Add sleep", exact: true })).toBeVisible();
+  await expect(page.locator(".sleep-session-card")).toHaveCount(1);
+  await expect(card(page).getByLabel("Session type")).toHaveValue("main-sleep");
+  await expect(card(page).getByLabel("Total sleep hours", { exact: true })).toHaveValue("");
+  await expect(card(page).getByLabel("Times awake", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Daily summary" })).toHaveCount(0);
+  const order = await card(page).locator("input[data-field]").evaluateAll((inputs) => [...new Set(inputs.map((input) => (input as HTMLElement).dataset.field?.split(".").at(-1)))]);
+  expect(order).toEqual(["startedAt", "endedAt", "totalSleepMinutes", "deepMinutes", "lightMinutes", "remMinutes", "awakeCount", "awakeMinutes", "label", "source"]);
+  const daily = page.locator(".sleep-daily-fields input");
+  await expect(daily.nth(0)).toHaveAttribute("type", "date");
+  await expect(daily.nth(1)).toHaveAttribute("readonly");
+  await expect(daily.nth(2)).toHaveAttribute("data-field", "sleepScore");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page).toHaveURL(/#\/measurements\/sleep$/);
 });
 
-test("new main sleep plus duration-only nap previews honest partial coverage and saves", async ({ page }) => {
+test("main sleep plus a duration-only 1 h 7 min nap saves unknown stages and a single daily total", async ({ page }) => {
   const writes = await setup(page, []);
-  await switchMode(page, "Individual sessions");
-  await expect(card(page).getByLabel("Session type")).toHaveValue("main-sleep");
+  await openNew(page);
   await duration(card(page), "Total sleep", "7", "0");
-  await card(page).getByText("Sleep stages and Awake details", { exact: true }).click();
-  await card(page).getByLabel("Times awake", { exact: true }).fill("3");
-  await duration(card(page), "Total time awake", "0", "18");
-  await duration(card(page), "Light sleep", "4", "0");
-  await duration(card(page), "Deep sleep", "1", "20");
-  await duration(card(page), "REM sleep", "1", "40");
+  await stages(card(page));
+  await card(page).getByLabel("Times awake", { exact: true }).fill("0");
   await expect(page.locator(".sleep-preview")).toContainText("Complete stage data");
-  await page.getByRole("button", { name: "Add session", exact: true }).click();
+  await page.getByRole("button", { name: "Add another session" }).click();
   await expect(card(page, 1).getByLabel("Session type")).toHaveValue("nap");
-  await duration(card(page, 1), "Total sleep", "", "40");
-  await expect(page.locator(".sleep-preview")).toContainText("7 h 40 min");
+  await expect(card(page, 1).locator("details")).not.toHaveAttribute("open");
+  await duration(card(page, 1), "Total sleep", "1", "7");
+  await expect(page.locator(".sleep-daily-total")).toHaveValue("8 h 7 min");
   await expect(page.locator(".sleep-preview")).toContainText("Partial stage data");
-  await expect(page.locator(".sleep-preview dd").filter({ hasText: "Not available for the complete day" })).toHaveCount(5);
-  await page.getByRole("button", { name: "Add sleep record", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Sleep record saved");
+  await expect(page.locator(".sleep-preview")).toContainText("2 sessions");
+  await expect(page.locator(".sleep-preview")).toContainText("Some sessions do not include sleep-stage details.");
+  await save(page);
   const input = writes[0];
   expect(input).not.toHaveProperty("totalSleepMinutes");
-  if (input?.detailMode !== "sessions") throw new Error("Expected session request");
-  expect(input.sessions[1]).toMatchObject({ sessionType: "nap", totalSleepMinutes: 40, awakeCount: null, lightMinutes: null, startedAt: null, endedAt: null });
-  await expect(page.locator(".sleep-session-history")).not.toHaveAttribute("open");
+  if (input?.detailMode !== "sessions") throw new Error("Expected sessions");
+  expect(input.sessions[0]?.awakeCount).toBe(0);
+  expect(input.sessions[1]).toMatchObject({ sessionType: "nap", totalSleepMinutes: 67, awakeCount: null, awakeMinutes: null, deepMinutes: null, lightMinutes: null, remMinutes: null, startedAt: null, endedAt: null });
+  await expect(page.locator(".sleep-total")).toContainText("8 h 7 min");
+  await expect(page.locator(".stage-cell")).toContainText("Partial stage data");
   await page.getByText("View 2 sessions", { exact: true }).click();
   await expect(page.getByText("No stage details", { exact: true })).toBeVisible();
-  await expect(page.getByText("Times awake: 3", { exact: false }).last()).toBeVisible();
 });
 
-test("two complete sessions aggregate correctly and reordering/removal preserve the right values", async ({ page }) => {
+test("existing summary edits preserve format, null and zero, and Cancel makes no write", async ({ page }) => {
+  const record = makeRecord(summaryInput);
+  const writes = await setup(page, [record]);
+  await openEdit(page);
+  await expect(page.locator(".sleep-session-card")).toHaveCount(0);
+  await expect(page.getByLabel("Total sleep minutes", { exact: true })).toHaveValue("24");
+  await expect(page.getByLabel("Times awake", { exact: true })).toHaveValue("");
+  await page.getByLabel("Times awake", { exact: true }).fill("9");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await openEdit(page);
+  await expect(page.getByLabel("Times awake", { exact: true })).toHaveValue("");
+  expect(writes).toHaveLength(0);
+  await save(page);
+  expect(writes[0]).toMatchObject({ ...summaryInput, awakeCount: null });
+  expect(writes[0]).not.toHaveProperty("sessions");
+  await openEdit(page);
+  await page.getByLabel("Times awake", { exact: true }).fill("0");
+  await save(page);
+  expect(writes[1]).toMatchObject({ awakeCount: 0, awakeMinutes: 18, totalSleepMinutes: 444 });
+});
+
+test("edit loads by ID on direct navigation and refresh; Back and Forward follow routes", async ({ page }) => {
+  const record = makeRecord(stagedInput);
+  await setup(page, [makeRecord(summaryInput), record]);
+  await page.goto(`/#/measurements/sleep/${record.id}/edit`);
+  await expect(card(page).getByLabel("Label (optional)")).toHaveValue("Night sleep");
+  await page.reload();
+  await expect(card(page).getByLabel("Label (optional)")).toHaveValue("Night sleep");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Your sleep records" })).toBeVisible();
+  await page.goBack();
+  await expect(card(page).getByLabel("Label (optional)")).toHaveValue("Night sleep");
+  await page.goForward();
+  await expect(page.getByRole("heading", { name: "Your sleep records" })).toBeVisible();
+});
+
+test("list query state survives refresh, Cancel and Save; unrelated return URLs fall back safely", async ({ page }) => {
+  await setup(page);
+  const list = "#/measurements/sleep?month=2026-09&source=watch%20%26%20manual&page=2";
+  await page.goto(`/${list}`);
+  await openNew(page);
+  await page.reload();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect.poll(() => new URL(page.url()).hash).toBe(list);
+  await openEdit(page);
+  await save(page);
+  await expect.poll(() => new URL(page.url()).hash).toBe(list);
+  await page.goto("/#/measurements/sleep/new?returnTo=https%3A%2F%2Fexample.com");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page).toHaveURL(/#\/measurements\/sleep$/);
+});
+
+test("invalid, missing and nonexistent IDs show an error with a way back", async ({ page }) => {
+  await setup(page);
+  for (const path of ["bad/edit", "edit", `${randomUUID()}/edit`]) {
+    await page.goto(`/#/measurements/sleep/${path}`);
+    await expect(page.getByRole("alert")).toContainText(path === "edit" || path === "bad/edit" ? "Invalid sleep record ID" : "Sleep record not found");
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+    await page.getByRole("link", { name: "Back to Sleep" }).click();
+    await expect(page.getByRole("heading", { name: "Your sleep records" })).toBeVisible();
+  }
+});
+
+test("details survive disclosure toggling, complete sessions remain complete, reorder and removal are guarded", async ({ page }) => {
   const writes = await setup(page, [makeRecord(stagedInput)]);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByRole("button", { name: "Add session", exact: true }).click();
+  await openEdit(page);
+  await page.getByRole("button", { name: "Add another session" }).click();
+  await duration(card(page, 1), "Total sleep", "1", "7");
+  await card(page, 1).getByText("Add details", { exact: true }).click();
+  await stages(card(page, 1)); // Stage sums need not equal the reported duration.
   await card(page, 1).getByLabel("Label (optional)").fill("Afternoon sleep");
-  await duration(card(page, 1), "Total sleep", "0", "40");
-  await card(page, 1).getByText("Sleep stages and Awake details", { exact: true }).click();
   await card(page, 1).getByLabel("Times awake", { exact: true }).fill("0");
-  await duration(card(page, 1), "Total time awake", "0", "0");
-  await duration(card(page, 1), "Light sleep", "0", "20");
-  await duration(card(page, 1), "Deep sleep", "0", "10");
-  await duration(card(page, 1), "REM sleep", "0", "10");
+  await card(page, 1).getByText("Add details", { exact: true }).click();
+  await expect(card(page, 1).locator("details")).not.toHaveAttribute("open");
+  await card(page, 1).getByText("Add details", { exact: true }).click();
+  await expect(card(page, 1).getByLabel("Times awake", { exact: true })).toHaveValue("0");
   await expect(page.locator(".sleep-preview")).toContainText("Complete stage data");
-  await expect(page.locator(".sleep-preview")).toContainText("4 h 20 min");
   await page.getByRole("button", { name: "Move session 2 up", exact: true }).focus();
   await page.keyboard.press("Enter");
   await expect(card(page).getByLabel("Label (optional)")).toHaveValue("Afternoon sleep");
-  await expect(card(page, 1).getByLabel("Label (optional)")).toHaveValue("Night sleep");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Sleep record saved");
+  await save(page);
   const input = writes[0];
   if (input?.detailMode !== "sessions") throw new Error("Expected sessions");
   expect(input.sessions.map(({ label, sortOrder }) => [label, sortOrder])).toEqual([["Afternoon sleep", 0], ["Night sleep", 1]]);
+  await openEdit(page);
+  await expect(card(page).locator("details")).toHaveAttribute("open");
+  await expect(card(page).getByLabel("Times awake", { exact: true })).toHaveValue("0");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("button", { name: "Remove session 1", exact: true }).click();
+  await expect(page.locator(".sleep-session-card")).toHaveCount(2);
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "Remove session 1", exact: true }).click();
   await expect(page.locator(".sleep-session-card")).toHaveCount(1);
   await expect(card(page).getByLabel("Label (optional)")).toHaveValue("Night sleep");
   await expect(page.getByRole("button", { name: "Remove session 1", exact: true })).toBeDisabled();
 });
 
-test("both mode switches can be cancelled without saving or losing drafts", async ({ page }) => {
-  const writes = await setup(page);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await page.getByRole("button", { name: "Individual sessions", exact: true }).click();
-  await expect(page.getByText("Session totals will become authoritative", { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: "Keep current mode" }).click();
-  await expect(page.getByLabel("Total sleep hours", { exact: true })).toHaveValue("7");
-  await expect(page.getByLabel("Total sleep minutes", { exact: true })).toHaveValue("24");
-  await switchMode(page, "Individual sessions");
-  await expect(card(page).getByLabel("Total sleep hours", { exact: true })).toHaveValue("");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.locator(".sleep-field-error")).toContainText("positive duration");
-  await duration(card(page), "Total sleep", "6", "30");
-  await page.getByRole("button", { name: "Daily summary", exact: true }).click();
-  await expect(page.getByText("All child sessions will be removed on Save.", { exact: false })).toBeVisible();
-  await page.getByRole("button", { name: "Keep current mode" }).click();
-  await expect(card(page).getByLabel("Total sleep hours", { exact: true })).toHaveValue("6");
-  expect(writes).toHaveLength(0);
-  await page.getByRole("button", { name: "Cancel editing / new entry" }).click();
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(page.getByLabel("Total sleep minutes", { exact: true })).toHaveValue("24");
-});
-
-test("confirmed session-to-summary conversion prefills totals but waits for Save", async ({ page }) => {
-  const writes = await setup(page, [makeRecord(stagedInput)]);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await switchMode(page, "Daily summary");
-  await expect(page.getByText("Review these calculated totals", { exact: false })).toBeVisible();
-  await expect(page.getByLabel("Times awake", { exact: true })).toHaveValue("3");
-  expect(writes).toHaveLength(0);
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.locator(".sleep-save-status")).toContainText("Sleep record saved");
-  expect(writes[0]).toMatchObject({ detailMode: "summary", totalSleepMinutes: 420, awakeCount: 3 });
-  expect(writes[0]).not.toHaveProperty("sessions");
-  await expect(page.locator(".sleep-session-history")).toHaveCount(0);
-});
-
-test("cross-midnight local times preserve sleepDate and independent sleep duration", async ({ page }) => {
+test("cross-midnight local times serialize independently of sleep duration", async ({ page }) => {
   const writes = await setup(page, []);
-  await switchMode(page, "Individual sessions");
+  await openNew(page);
   await page.getByLabel("Sleep date *", { exact: true }).fill("2026-09-16");
   await duration(card(page), "Total sleep", "7", "0");
-  await card(page).getByLabel("Start date/time (optional)").fill("2026-09-15T23:00");
-  await card(page).getByLabel("End date/time (optional)").fill("2026-09-16T07:00");
-  await page.getByRole("button", { name: "Add sleep record", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Sleep record saved");
+  await card(page).getByLabel("From", { exact: true }).fill("2026-09-15T23:00");
+  await card(page).getByLabel("To", { exact: true }).fill("2026-09-16T07:00");
+  await save(page);
   const input = writes[0];
   if (input?.detailMode !== "sessions") throw new Error("Expected sessions");
   expect(input.sleepDate).toBe("2026-09-16");
-  expect(input.sessions[0]).toMatchObject({ totalSleepMinutes: 420, startedAt: "2026-09-15T20:00:00.000Z", endedAt: "2026-09-16T04:00:00.000Z" });
+  expect(input.sessions[0]).toMatchObject({ totalSleepMinutes: 420, startedAt: "2026-09-15T20:00:00.000Z", endedAt: "2026-09-16T04:00:00.000Z", awakeCount: null });
 });
 
-test("invalid optional values open their disclosure and associate errors with fields", async ({ page }) => {
+test("validation reveals collapsed details, preserves values and associates errors", async ({ page }) => {
   const writes = await setup(page, [makeRecord(stagedInput)]);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await card(page).getByText("Sleep stages and Awake details", { exact: true }).click();
-  await card(page).getByLabel("Times awake", { exact: true }).fill("-1");
-  await card(page).getByText("Sleep stages and Awake details", { exact: true }).click();
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(card(page).locator("details")).toHaveAttribute("open");
-  const field = card(page).locator('[data-field="sessions.0.awakeCount"]');
-  await expect(field).toHaveAttribute("aria-invalid", "true");
-  await expect(field).toHaveAttribute("aria-describedby", "sleep-error-sessions.0.awakeCount");
-  await expect(field).toBeFocused();
+  await openEdit(page);
+  await page.getByRole("button", { name: "Add another session" }).click();
+  await duration(card(page, 1), "Total sleep", "1", "7");
+  await card(page, 1).getByText("Add details", { exact: true }).click();
+  await card(page, 1).getByLabel("Times awake", { exact: true }).fill("-1");
+  await card(page, 1).getByLabel("From", { exact: true }).fill("2026-09-16T16:00");
+  await card(page, 1).getByLabel("To", { exact: true }).fill("2026-09-16T15:00");
+  await card(page, 1).getByText("Add details", { exact: true }).click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(card(page, 1).locator("details")).toHaveAttribute("open");
+  await expect(card(page, 1).getByLabel("To", { exact: true })).toBeFocused();
+  await expect(card(page, 1).getByLabel("Times awake", { exact: true })).toHaveAttribute("aria-describedby", "sleep-error-sessions.1.awakeCount");
+  await expect(card(page, 1).getByLabel("Times awake", { exact: true })).toHaveValue("-1");
+  await expect(card(page, 1).getByLabel("Total sleep minutes", { exact: true })).toHaveValue("7");
   expect(writes).toHaveLength(0);
 });
 
-test("saved server response replaces the session preview and history", async ({ page }) => {
-  await setup(page, [makeRecord(stagedInput)], (input) => input.detailMode === "sessions" ? { ...input, sessions: input.sessions.map((session) => ({ ...session, totalSleepMinutes: 500 })) } : input);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await expect(page.locator(".sleep-preview")).toContainText("7 h 0 min");
-  await page.getByRole("button", { name: "Save changes", exact: true }).click();
-  await expect(page.getByRole("status")).toContainText("Sleep record saved");
-  await expect(page.locator(".sleep-preview")).toContainText("8 h 20 min");
+test("API errors keep drafts, repeated Save is guarded, and server values reach the list", async ({ page }) => {
+  const writes = await setup(page, [makeRecord(stagedInput)], (input) => input.detailMode === "sessions" ? { ...input, sessions: input.sessions.map((session) => ({ ...session, totalSleepMinutes: 500 })) } : input);
+  await openEdit(page);
+  await page.route("**/api/sleep-records/*", async (route) => route.request().method() === "PUT" ? route.fulfill({ status: 409, json: { error: { message: "A sleep record already exists for this date" } } }) : route.fallback(), { times: 1 });
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("already exists");
+  await expect(card(page).getByLabel("Label (optional)")).toHaveValue("Night sleep");
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/api/sleep-records/*", async (route) => { await gate; await route.fallback(); }, { times: 1 });
+  await page.locator("form").evaluate((form) => { form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })); });
+  await expect(page.getByRole("button", { name: "Saving…", exact: true })).toBeDisabled();
+  release();
+  await expect(page.getByRole("heading", { name: "Your sleep records" })).toBeVisible();
+  expect(writes).toHaveLength(1);
   await expect(page.locator(".sleep-total")).toContainText("8 h 20 min");
+  await openEdit(page);
   await expect(card(page).getByLabel("Total sleep hours", { exact: true })).toHaveValue("8");
 });
 
-for (const viewport of [{ name: "320px", width: 320, scale: 1 }, { name: "mobile", width: 390, scale: 1 }, { name: "desktop", width: 1440, scale: 1 }, { name: "200-percent-equivalent", width: 640, scale: 2 }]) {
+for (const viewport of [
+  { name: "320x568", width: 320, height: 568, scale: 1 },
+  { name: "375x667", width: 375, height: 667, scale: 1 },
+  { name: "768x1024", width: 768, height: 1024, scale: 1 },
+  { name: "1280x720", width: 1280, height: 720, scale: 1 },
+  { name: "1440x900", width: 1440, height: 900, scale: 1 },
+  { name: "200-percent-equivalent", width: 640, height: 360, scale: 2 },
+]) {
   test.describe(viewport.name, () => {
-    test.use({ viewport: { width: viewport.width, height: 900 }, deviceScaleFactor: viewport.scale });
-    test("session fields and history fit without horizontal page scrolling", async ({ page }, testInfo) => {
+    test.use({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.scale });
+    test("editor and list fit without horizontal scrolling", async ({ page }, testInfo) => {
       await setup(page, [makeRecord(stagedInput)]);
-      await page.getByRole("button", { name: "Edit", exact: true }).click();
-      await card(page).getByText("Sleep stages and Awake details", { exact: true }).click();
-      await page.getByText("View 1 session", { exact: true }).click();
+      await openEdit(page);
+      await page.getByRole("button", { name: "Add another session" }).click();
+      await duration(card(page, 1), "Total sleep", "1", "7");
       await expect(card(page).getByLabel("Times awake", { exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-      const widths = await page.locator('.sleep-page input[type="number"]').evaluateAll((inputs) => inputs.map((input) => input.getBoundingClientRect().width));
+      const widths = await page.locator('.sleep-page input[type="number"]').evaluateAll((inputs) => inputs.filter((input) => input.getBoundingClientRect().width > 0).map((input) => input.getBoundingClientRect().width));
       expect(Math.min(...widths)).toBeGreaterThanOrEqual(50);
       await page.screenshot({ path: testInfo.outputPath(`sleep-${viewport.name}.png`), fullPage: true });
+      await page.getByRole("button", { name: "Cancel", exact: true }).click();
+      await page.getByText("View 1 session", { exact: true }).click();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     });
   });
 }

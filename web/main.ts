@@ -31,7 +31,7 @@ const navigation: Array<{ category: Category; label: string; items: Array<{ rout
   ] },
   { category: "journal", label: "Journal", items: [{ route: "journal", label: "Journal", hash: "#/journal" }] },
 ];
-export const routeFromHash = (): Route => { const path = window.location.hash.split("?")[0]; if (!path) return "dashboard"; return navigation.flatMap(({ items }) => items).find(({ hash }) => hash === path)?.route ?? "weight"; };
+export const routeFromHash = (): Route => { const path = window.location.hash.split("?")[0]; if (!path) return "dashboard"; if (path.startsWith("#/measurements/sleep/")) return "sleep"; return navigation.flatMap(({ items }) => items).find(({ hash }) => hash === path)?.route ?? "weight"; };
 
 const today = () => {
   const now = new Date();

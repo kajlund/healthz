@@ -12,7 +12,7 @@ export type SessionDraft = MeasurementsDraft & {
 };
 export interface SleepDraft {
   id: string | null; originalMode: DetailMode; detailMode: DetailMode; sleepDate: string;
-  summary: MeasurementsDraft; sessions: SessionDraft[]; sleepScore: string; source: string; notes: string; reviewSummary: boolean;
+  summary: MeasurementsDraft; sessions: SessionDraft[]; sleepScore: string; source: string; notes: string;
 }
 export const durationKeys: DurationKey[] = ["totalSleepMinutes", "awakeMinutes", "lightMinutes", "deepMinutes", "remMinutes"];
 export const coverageLabels = { complete: "Complete stage data", partial: "Partial stage data", none: "No stage data" };
@@ -28,7 +28,7 @@ export const measurementDraft = (values: Measurements = {}): MeasurementsDraft =
 });
 let nextKey = 0;
 export const newSession = (sessionType: SessionDraft["sessionType"] = "main-sleep"): SessionDraft => ({
-  ...measurementDraft(), key: `sleep-session-${++nextKey}`, sessionType, label: "", source: "", startedAt: "", endedAt: "", detailsOpen: false,
+  ...measurementDraft(), key: `sleep-session-${++nextKey}`, sessionType, label: "", source: "", startedAt: "", endedAt: "", detailsOpen: sessionType === "main-sleep",
 });
 const pad = (value: number, length = 2) => String(value).padStart(length, "0");
 export const localDateTime = (value: string | Date): string => {
@@ -50,15 +50,16 @@ export const sessionDraft = (session: SleepSession): SessionDraft => ({
   ...newSession(session.sessionType), ...measurementDraft(session), label: session.label ?? "", source: session.source ?? "",
   startedAt: session.startedAt ? localDateTime(session.startedAt).slice(0, 16) : "", endedAt: session.endedAt ? localDateTime(session.endedAt).slice(0, 16) : "",
   originalStartedAt: session.startedAt, originalEndedAt: session.endedAt,
+  detailsOpen: session.sessionType === "main-sleep" || [session.startedAt, session.endedAt, session.label, session.source, session.awakeCount, session.awakeMinutes, session.deepMinutes, session.lightMinutes, session.remMinutes].some((value) => value != null && value !== ""),
 });
 export const newSleepDraft = (): SleepDraft => ({
-  id: null, originalMode: "summary", detailMode: "summary", sleepDate: localDateTime(new Date()).slice(0, 10),
-  summary: measurementDraft(), sessions: [], sleepScore: "", source: "manual", notes: "", reviewSummary: false,
+  id: null, originalMode: "sessions", detailMode: "sessions", sleepDate: localDateTime(new Date()).slice(0, 10),
+  summary: measurementDraft(), sessions: [newSession()], sleepScore: "", source: "manual", notes: "",
 });
 export const draftFromRecord = (record: SleepRecord): SleepDraft => ({
   id: record.id, originalMode: record.detailMode, detailMode: record.detailMode, sleepDate: record.sleepDate,
   summary: measurementDraft(record), sessions: record.sessions.map(sessionDraft), sleepScore: record.sleepScore == null ? "" : String(record.sleepScore),
-  source: record.source, notes: record.notes ?? "", reviewSummary: false,
+  source: record.source, notes: record.notes ?? "",
 });
 export const optionalInteger = (value: string): number | null => value.trim() === "" ? null : Number(value);
 export const durationValue = ({ hours, minutes }: DurationDraft): number | null => {
@@ -83,9 +84,6 @@ export const previewSessions = (sessions: SessionDraft[]) => {
   const aggregate = rows.length ? aggregateSessions(rows) : { totalSleepMinutes: 0, awakeMinutes: null, awakeCount: null, lightMinutes: null, deepMinutes: null, remMinutes: null };
   return { ...aggregate, totalSleepMinutes: rows.length && rows.every((row) => row.totalSleepMinutes > 0) ? aggregate.totalSleepMinutes : null, stageCoverage: stageCoverage(rows) };
 };
-export const changeMode = (draft: SleepDraft, mode: DetailMode): SleepDraft => mode === draft.detailMode ? draft : mode === "sessions"
-  ? { ...draft, detailMode: mode, sessions: [newSession()], reviewSummary: false }
-  : { ...draft, detailMode: mode, summary: measurementDraft(previewSessions(draft.sessions)), reviewSummary: true };
 export const moveSession = (sessions: SessionDraft[], index: number, direction: -1 | 1): SessionDraft[] => {
   const target = index + direction;
   if (target < 0 || target >= sessions.length) return sessions;
