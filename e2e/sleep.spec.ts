@@ -50,7 +50,8 @@ const openNew = async (page: Page) => {
   await expect(page.getByRole("heading", { name: "Add sleep", exact: true })).toBeVisible();
 };
 const openEdit = async (page: Page) => {
-  await page.getByRole("link", { name: "Edit", exact: true }).first().click();
+  await page.getByRole("button", { name: /^Actions for sleep on/ }).first().click();
+  await page.getByRole("menuitem", { name: "Edit", exact: true }).click();
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeVisible();
 };
 const save = async (page: Page) => {
@@ -84,6 +85,7 @@ test("direct new URL starts one blank expanded Main sleep in source field order"
 
 test("main sleep plus a duration-only 1 h 7 min nap saves unknown stages and a single daily total", async ({ page }) => {
   const writes = await setup(page, []);
+  await page.goto("/#/measurements/sleep?month=2026-09");
   await openNew(page);
   await duration(card(page), "Total sleep", "7", "0");
   await stages(card(page));
@@ -98,6 +100,7 @@ test("main sleep plus a duration-only 1 h 7 min nap saves unknown stages and a s
   await expect(page.locator(".sleep-preview")).toContainText("2 sessions");
   await expect(page.locator(".sleep-preview")).toContainText("Some sessions do not include sleep-stage details.");
   await save(page);
+  await expect(page).toHaveURL(/#\/measurements\/sleep\?month=2026-09$/);
   const input = writes[0];
   expect(input).not.toHaveProperty("totalSleepMinutes");
   if (input?.detailMode !== "sessions") throw new Error("Expected sessions");
@@ -259,6 +262,94 @@ test("API errors keep drafts, repeated Save is guarded, and server values reach 
   await expect(card(page).getByLabel("Total sleep hours", { exact: true })).toHaveValue("8");
 });
 
+test("record actions support keyboard navigation, dismissal and only one open menu", async ({ page }) => {
+  const record = makeRecord(summaryInput);
+  await setup(page, [record, makeRecord({ ...summaryInput, sleepDate: "2026-09-15" })]);
+  const triggers = page.getByRole("button", { name: /^Actions for sleep on/ });
+  const first = triggers.first();
+  await expect(first).toHaveAccessibleName(/Actions for sleep on .*16.*2026/);
+  await first.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("menuitem", { name: "Edit" })).toBeFocused();
+  await expect(page.getByRole("menuitem")).toHaveCount(2);
+  await expect(page.getByRole("menu")).toHaveAccessibleName(/Actions for sleep on .*16.*2026/);
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: "Delete" })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("menuitem", { name: "Edit" })).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(page.getByRole("menuitem", { name: "Delete" })).toBeFocused();
+  await page.keyboard.press("Home");
+  await expect(page.getByRole("menuitem", { name: "Edit" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(first).toBeFocused();
+  await expect(first).toHaveAttribute("aria-expanded", "false");
+  await first.click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await first.click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.keyboard.press("Space");
+  await expect(page.getByRole("menu")).toBeVisible();
+  await triggers.nth(1).click();
+  await expect(page.getByRole("menu")).toHaveCount(1);
+  await expect(first).toHaveAttribute("aria-expanded", "false");
+  await page.getByRole("heading", { name: "Your sleep records" }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await first.focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByRole("menuitem", { name: "Delete" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(triggers.nth(1)).toBeFocused();
+  await first.click();
+  await expect(page.getByRole("menuitem", { name: /Duplicate|Copy|Convert/i })).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/measurements\/sleep$/);
+  await page.getByRole("menuitem", { name: "Edit" }).focus();
+  await page.keyboard.press("Space");
+  await expect.poll(() => new URL(page.url()).hash.split("?")[0]).toBe(`#/measurements/sleep/${record.id}/edit`);
+  await expect(page.getByRole("heading", { name: "Edit sleep", exact: true })).toBeVisible();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+});
+
+test("Delete confirms, cancellation keeps data, and successful deletion preserves the list context and focus", async ({ page }) => {
+  await setup(page);
+  const list = "#/measurements/sleep?month=2026-09&page=2";
+  await page.goto(`/${list}`);
+  let deletions = 0;
+  page.on("request", (request) => { if (request.method() === "DELETE") deletions++; });
+  const trigger = page.getByRole("button", { name: /^Actions for sleep on/ });
+  await trigger.click();
+  page.once("dialog", async (dialog) => { expect(dialog.type()).toBe("confirm"); expect(dialog.message()).toContain("2026"); await dialog.dismiss(); });
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(trigger).toBeFocused();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(page.locator(".measurement-row")).toHaveCount(1);
+  expect(deletions).toBe(0);
+  await trigger.click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(page.locator(".measurement-row")).toHaveCount(0);
+  await expect(page.getByText("Start your sleep history")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Add sleep", exact: true })).toBeFocused();
+  expect(deletions).toBe(1);
+  await expect.poll(() => new URL(page.url()).hash).toBe(list);
+});
+
+test("failed Delete retains the record, displays the API error and restores focus", async ({ page }) => {
+  await setup(page);
+  await page.route("**/api/sleep-records/*", (route) => route.request().method() === "DELETE"
+    ? route.fulfill({ status: 500, json: { error: { message: "Unable to delete sleep record. Try again." } } }) : route.fallback());
+  const trigger = page.getByRole("button", { name: /^Actions for sleep on/ });
+  await trigger.click();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("menuitem", { name: "Delete" }).click();
+  await expect(page.getByRole("alert")).toContainText("Unable to delete sleep record");
+  await expect(page.locator(".measurement-row")).toHaveCount(1);
+  await expect(trigger).toBeFocused();
+  await expect(trigger).toBeEnabled();
+  await expect(page).toHaveURL(/#\/measurements\/sleep$/);
+});
+
 for (const viewport of [
   { name: "320x568", width: 320, height: 568, scale: 1 },
   { name: "375x667", width: 375, height: 667, scale: 1 },
@@ -270,7 +361,7 @@ for (const viewport of [
   test.describe(viewport.name, () => {
     test.use({ viewport: { width: viewport.width, height: viewport.height }, deviceScaleFactor: viewport.scale });
     test("editor and list fit without horizontal scrolling", async ({ page }, testInfo) => {
-      await setup(page, [makeRecord(stagedInput)]);
+      await setup(page, [makeRecord({ ...stagedInput, source: "LongSource".repeat(20) })]);
       await openEdit(page);
       await page.getByRole("button", { name: "Add another session" }).click();
       await duration(card(page, 1), "Total sleep", "1", "7");
@@ -282,6 +373,21 @@ for (const viewport of [
       await page.getByRole("button", { name: "Cancel", exact: true }).click();
       await page.getByText("View 1 session", { exact: true }).click();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      const trigger = page.getByRole("button", { name: /^Actions for sleep on/ });
+      await trigger.click();
+      const menu = page.getByRole("menu");
+      await expect(menu).toBeVisible();
+      const bounds = await menu.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.y).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(viewport.width);
+      expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(viewport.height);
+      expect((await trigger.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`sleep-actions-${viewport.name}.png`) });
+      await page.keyboard.press("Escape");
+      await expect(trigger).toBeFocused();
     });
   });
 }

@@ -474,6 +474,14 @@ report-chart canvas { max-width: 100%; }
 .sleep-editor-actions button { min-height: 46px; min-width: 110px; margin: 0; padding: 10px 20px; }
 .sleep-page .list-card { margin-top: 24px; }
 .sleep-page a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+record-actions { display: inline-block; }
+.record-actions-trigger { min-height: 44px; min-width: 88px; }
+.record-actions-menu { position: fixed; inset: auto; margin: 0; width: 176px; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow-y: auto; padding: 5px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); box-shadow: 0 8px 24px rgba(32, 55, 42, .16); }
+.record-actions-menu:popover-open { display: grid; }
+.record-actions-menu [role="menuitem"] { display: flex; align-items: center; width: 100%; min-height: 44px; padding: 10px 12px; border: 0; border-radius: 6px; background: transparent; color: var(--accent); text-decoration: none; font: inherit; font-size: 13px; font-weight: 700; text-align: left; }
+.record-actions-menu .danger { color: var(--danger); }
+.record-actions-menu [role="menuitem"]:hover, .record-actions-menu [role="menuitem"]:focus-visible { background: var(--soft); }
+.record-actions-menu [role="menuitem"]:focus-visible, .record-actions-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (max-width: 760px) {
   .sleep-page .sleep-daily-fields, .sleep-page .sleep-fields-grid { grid-template-columns: minmax(0, 1fr); }
 }

@@ -6,6 +6,8 @@ import {
   durationValue, previewSessions, removeSession, typeLabels, validateDraft,
   type DurationDraft, type DurationKey, type FieldErrors, type MeasurementsDraft, type SessionDraft, type SleepDraft,
 } from "./sleep-editor.js";
+import type { RecordActions } from "./record-actions.js";
+import "./record-actions.js";
 import { parseSleepRoute, sleepEditorUrl, type SleepRoute } from "./sleep-routes.js";
 
 export class SleepPage extends LitElement {
@@ -112,11 +114,24 @@ export class SleepPage extends LitElement {
     finally { if (version === this.loadVersion) this.saving = false; }
   }
   private async deleteRecord(record: SleepRecord) {
-    if (!window.confirm(`Delete the sleep record for ${this.formatDate(record.sleepDate)} and all its sessions?`)) return;
+    if (this.deletingId || !window.confirm(`Delete the sleep record for ${this.formatDate(record.sleepDate)} and all its sessions?`)) return;
+    const version = this.loadVersion;
+    const index = this.records.findIndex(({ id }) => id === record.id);
     this.deletingId = record.id; this.error = null;
-    try { await sleepRecordsApi.delete(record.id); this.records = this.records.filter(({ id }) => id !== record.id); }
-    catch (error) { this.error = error instanceof Error ? error.message : "Unable to delete sleep record."; }
-    finally { this.deletingId = null; }
+    try {
+      await sleepRecordsApi.delete(record.id);
+      if (version === this.loadVersion) this.records = this.records.filter(({ id }) => id !== record.id);
+    } catch (error) {
+      if (version === this.loadVersion) this.error = error instanceof Error ? error.message : "Unable to delete sleep record.";
+    } finally {
+      this.deletingId = null;
+      await this.updateComplete;
+      if (version === this.loadVersion) {
+        const next = this.records.find(({ id }) => id === record.id) ?? this.records[Math.min(index, this.records.length - 1)];
+        if (next) this.querySelector<RecordActions>(`record-actions[data-record-id="${next.id}"]`)?.focusTrigger();
+        else this.querySelector<HTMLElement>(".sleep-new-link")?.focus();
+      }
+    }
   }
   private formatDate(value: string) { return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)); }
   private fieldError(key: string) { return this.errors[key] ? html`<small class="sleep-field-error" id=${`sleep-error-${key}`}>${this.errors[key]}</small>` : nothing; }
@@ -215,7 +230,10 @@ export class SleepPage extends LitElement {
           ${(["lightMinutes", "deepMinutes", "remMinutes"] as const).map((key, index) => record[key] === null ? nothing : html`<span>${["Light", "Deep", "REM"][index]} ${formatDuration(record[key]!)}</span>`)}
           ${record.detailMode === "sessions" && record.stageCoverage === "partial" ? html`<small>Some sessions have incomplete stages; missing daily totals are not available.</small>` : nothing}</div>
         <div class="source-cell"><span class="mobile-label">Score & source</span><strong>${record.sleepScore ?? "—"}</strong><small>${record.source}</small></div>
-        <div class="actions"><a class="text-button" href=${sleepEditorUrl(record.id, this.route.returnTo)}>Edit</a><button class="text-button danger" type="button" ?disabled=${this.saving || this.deletingId === record.id} @click=${() => this.deleteRecord(record)}>${this.deletingId === record.id ? "Deleting…" : "Delete"}</button></div>
+        <div class="actions"><record-actions data-record-id=${record.id}
+          .label=${`Actions for sleep on ${this.formatDate(record.sleepDate)}`}
+          .editHref=${sleepEditorUrl(record.id, this.route.returnTo)} .busy=${this.deletingId === record.id}
+          @delete-request=${() => this.deleteRecord(record)}></record-actions></div>
         ${record.detailMode === "sessions" ? html`<details class="sleep-session-history"><summary>View ${record.sessions.length} ${record.sessions.length === 1 ? "session" : "sessions"}</summary><p class="sleep-help">Times shown in ${this.timeZone}.</p><ol>${record.sessions.map((session, index) => this.renderSessionHistory(session, index))}</ol></details>` : nothing}
       </article>`)}</div>`;
   }
