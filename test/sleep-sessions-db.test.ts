@@ -9,6 +9,8 @@ import { createApp } from "../src/app.js";
 import { createSleepRecordRepository, type SleepRecordRepository } from "../src/sleep-records/repository.js";
 import { createSleepRecordSchema, type SleepRecordInput } from "../src/sleep-records/schemas.js";
 import { calculateMonthlyReports } from "../src/reports/calculations.js";
+import { createReportingDataSource } from "../src/reports/data-source.js";
+import { createDashboardLatestSource } from "../src/dashboard/data-source.js";
 
 // Opt in with SLEEP_DATABASE_TESTS=1. All writes target a new disposable schema;
 // no existing tables, source exports, or records are read or changed.
@@ -34,6 +36,9 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== "1")("Sleep PostgreSQL inte
     const migration = await readFile(new URL("../drizzle/0007_sleep_sessions.sql", import.meta.url), "utf8");
     expect(migration).not.toMatch(/\b(UPDATE\s+"|INSERT\s+INTO|DELETE\s+FROM|DROP\s+TABLE)\b/i);
     await pool.query(migration.replaceAll('"public".', `"${schema}".`));
+    for (const name of ["0000_shocking_overlord", "0001_goofy_the_watchers", "0003_kind_may_parker", "0004_rare_amazoness", "0005_adorable_sinister_six"]) {
+      await pool.query(await readFile(new URL(`../drizzle/${name}.sql`, import.meta.url), "utf8"));
+    }
     // A database failure after parent writes and child deletion tests real rollback.
     await pool.query("ALTER TABLE sleep_sessions ADD CONSTRAINT test_reject_label CHECK (label <> 'reject')");
     repository = createSleepRecordRepository(drizzle(pool, { logger: { logQuery: (query) => { queries.push(query); } } }));
@@ -140,5 +145,31 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== "1")("Sleep PostgreSQL inte
     const final = await repository.findById(result.id);
     expect(final!.totalSleepMinutes).toBe(final!.sessions.reduce((sum, session) => sum + session.totalSleepMinutes, 0));
     expect([60, 450]).toContain(final!.totalSleepMinutes);
+  });
+  it("reports each parent once with correct SQL coverage and latest-session metadata", async () => {
+    await repository.create({ ...summary(), sleepDate: "2031-01-01", awakeCount: 0 });
+    await repository.create(sessions("2031-01-02"));
+    await repository.create({ sleepDate: "2031-01-03", source: "manual", detailMode: "sessions", sessions: [
+      { sessionType: "main-sleep", totalSleepMinutes: 420, sortOrder: 0, awakeCount: 2, lightMinutes: 240, deepMinutes: 80, remMinutes: 100 },
+      { sessionType: "nap", totalSleepMinutes: 40, sortOrder: 1, awakeCount: 0, lightMinutes: 20, deepMinutes: 20, remMinutes: 0 },
+    ] });
+    await repository.create({ sleepDate: "2031-01-04", source: "manual", detailMode: "sessions", sessions: [
+      { sessionType: "nap", totalSleepMinutes: 30, sortOrder: 0, awakeCount: 0 },
+    ] });
+    const database = drizzle(pool, { logger: { logQuery: (query) => { queries.push(query); } } });
+    queries.length = 0;
+    const data = await createReportingDataSource(database).load([{ from: "2031-01", to: "2031-01" }]);
+    expect(queries.filter((query) => query.startsWith("select"))).toHaveLength(6);
+    expect(data.sleepRecords).toHaveLength(4);
+    expect(data.sleepRecords.find(({ sleepDate }) => sleepDate === "2031-01-02")).toMatchObject({ stageCoverage: "partial", totalSleepMinutes: 450, lightMinutes: null, awakeCount: null });
+    const report = calculateMonthlyReports(["2031-01"], data)[0]!.sleep;
+    expect(report.stageCoverage).toEqual({ completeDays: 2, partialDays: 1, noStageDays: 1 });
+    expect(report.averageTotalSleepMinutes.sampleCount).toBe(4);
+    expect(report.averageLightMinutes.sampleCount).toBe(2);
+    expect(report.averageAwakeCount).toEqual({ value: 0.67, sampleCount: 3, source: "daily" });
+    queries.length = 0;
+    const latest = await createDashboardLatestSource(database).load();
+    expect(queries.filter((query) => query.startsWith("select"))).toHaveLength(4);
+    expect(latest.sleep).toMatchObject({ sleepDate: "2031-01-04", detailMode: "sessions", totalSleepMinutes: 30, awakeCount: 0, sessionCount: 1, napCount: 1 });
   });
 });

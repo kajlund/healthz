@@ -191,7 +191,7 @@ export interface MonthlyReport {
   month: string;
   weight: null | { average: ReportMetric; minimum: ReportMetric; maximum: ReportMetric; first: ReportMetric; last: ReportMetric; measurementCount: number };
   bloodPressure: null | { averageSystolic: ReportMetric; averageDiastolic: ReportMetric; averagePulse: ReportMetric; readingCount: number; measuredDayCount: number };
-  sleep: { averageTotalSleepMinutes: ReportMetric; averageAwakeMinutes: ReportMetric; averageLightMinutes: ReportMetric; averageDeepMinutes: ReportMetric; averageRemMinutes: ReportMetric; averageSleepScore: ReportMetric };
+  sleep: import("../src/reports/types.js").SleepReport;
   pap: { averageUsageMinutes: ReportMetric; averageEventsPerHour: ReportMetric; averageMaskSealScore: ReportMetric; averageMaskOnOffCount: ReportMetric; averageTotalScore: ReportMetric };
 }
 export interface MonthlyReportResponse { meta: { from: string; to: string; generatedAt: string; monthCount: number }; months: MonthlyReport[]; }
@@ -205,7 +205,7 @@ export interface DashboardResponse {
   latest: {
     weight: Pick<BodyMeasurement, "measuredOn" | "weightKg"> | null;
     bloodPressure: Pick<BloodPressureReading, "measuredAt" | "systolic" | "diastolic" | "pulse"> | null;
-    sleep: Pick<SleepRecord, "sleepDate" | "totalSleepMinutes" | "sleepScore"> | null;
+    sleep: import("../src/dashboard/types.js").DashboardLatest["sleep"];
     pap: Pick<PapRecord, "therapyDate" | "healthDate" | "usageMinutes" | "eventsPerHour" | "totalScore"> | null;
   };
   healthcare: { latestPast: HealthcareEvent | null; nextFuture: HealthcareEvent | null };

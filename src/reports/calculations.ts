@@ -1,5 +1,6 @@
 import type { MonthlyReport, PapReport, ReportData, ReportMetric, SleepReport } from "./types.js";
 import { effectivePapHealthDate } from "../pap-records/date.js";
+import { stageCoverage } from "../sleep-records/service.js";
 
 const round = (value: number, decimals: number) => Number(value.toFixed(decimals));
 const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -35,7 +36,10 @@ export const calculateMonthlyReports = (months: string[], data: ReportData): Mon
   const bloodPressure = readings.length ? { averageSystolic: dailyMetric(systolic, 1), averageDiastolic: dailyMetric(diastolic, 1), averagePulse: dailyMetric(pulse, 1), readingCount: readings.length, measuredDayCount: daily.size } : null;
 
   const sleepDaily = data.sleepRecords.filter((item) => byMonth(item.sleepDate) === month); const sleepSummary = data.monthlySleep.find((item) => byMonth(item.summaryMonth) === month);
+  const coverage = sleepDaily.map((item) => item.stageCoverage ?? stageCoverage([item]));
   const sleep: SleepReport = {
+    averageAwakeCount: dailyMetric(sleepDaily.flatMap((item) => item.awakeCount == null ? [] : [item.awakeCount]), 2),
+    stageCoverage: { completeDays: coverage.filter((value) => value === "complete").length, partialDays: coverage.filter((value) => value === "partial").length, noStageDays: coverage.filter((value) => value === "none").length },
     averageTotalSleepMinutes: fallbackMetric(sleepDaily.map((item) => item.totalSleepMinutes), sleepSummary?.averageTotalSleepMinutes, sleepSummary?.daysRecorded, 0),
     averageAwakeMinutes: fallbackMetric(sleepDaily.map((item) => item.awakeMinutes), sleepSummary?.averageAwakeMinutes, sleepSummary?.daysRecorded, 0),
     averageLightMinutes: fallbackMetric(sleepDaily.map((item) => item.lightMinutes), sleepSummary?.averageLightMinutes, sleepSummary?.daysRecorded, 0),

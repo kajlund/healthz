@@ -221,6 +221,14 @@ footer span:first-child { color: var(--ink); font-weight: 800; }
 .report-head, .comparison-head { border-top: 0; background: #f5f7f4; color: #78847b; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .report-row > *, .comparison-row > * { min-width: 0; }
 .report-row > div, .comparison-row > div { display: grid; gap: 4px; }
+.report-coverage-help, .report-coverage { margin: 0; padding: 12px 22px; color: var(--muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+.report-coverage { background: #f5f7f4; border-top: 1px solid var(--line); }
+.report-coverage-notes { margin-top: 12px; padding: 14px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); font-size: 13px; line-height: 1.6; }
+.report-coverage-notes summary { cursor: pointer; color: var(--accent); font-weight: 700; }
+.report-coverage-notes summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.report-coverage-notes p { margin-top: 10px; }
+.report-coverage-notes li { margin-block: 5px; }
+.comparison-coverage { color: var(--muted); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
 .report-value { color: var(--ink); font-size: 13px; font-weight: 700; }
 .source-badge { width: fit-content; padding: 2px 6px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: 9px; line-height: 1.4; white-space: nowrap; }
 .source-monthly-summary { border-style: dashed; }
