@@ -64,15 +64,12 @@ describe("sleep session validation and aggregates", () => {
     expect(valuesFromSleepInput(createSleepRecordSchema.parse(old))).toEqual({ ...old, detailMode: "summary", awakeCount: null });
     expect(valuesFromSleepInput(createSleepRecordSchema.parse(day)).sleepScore).toBeNull();
   });
-  it("reports session totals, preserves missing stages, and retains monthly fallback", () => {
+  it("reports session totals, preserves missing stages", () => {
     const parent = valuesFromSleepInput(createSleepRecordSchema.parse(day));
-    const data = { weights: [], bloodPressures: [], sleepRecords: [parent], papRecords: [], monthlySleep: [], monthlyPap: [] };
+    const data = { weights: [], bloodPressures: [], sleepRecords: [parent], papRecords: [] };
     const report = calculateMonthlyReports(["2026-09"], data)[0]!.sleep;
     expect(report.averageTotalSleepMinutes).toEqual({ value: 450, source: "daily", sampleCount: 1 });
     expect(report.averageLightMinutes).toEqual({ value: null, source: "none", sampleCount: null });
-    const fallback = calculateMonthlyReports(["2026-09"], { ...data, monthlySleep: [{ summaryMonth: "2026-09-01", averageTotalSleepMinutes: 300, averageAwakeMinutes: null, averageLightMinutes: 200, averageDeepMinutes: null, averageRemMinutes: null, averageSleepScore: null, daysRecorded: 30 }] })[0]!.sleep;
-    expect(fallback.averageTotalSleepMinutes.value).toBe(450);
-    expect(fallback.averageLightMinutes).toEqual({ value: 200, source: "monthly-summary", sampleCount: 30 });
     expect(parent.lightMinutes).toBeNull();
   });
 });

@@ -4,14 +4,13 @@ import { bodyMeasurementsApi, type BodyMeasurement, type BodyMeasurementInput } 
 import "./blood-pressure-page.js";
 import "./sleep-page.js";
 import "./pap-page.js";
-import "./monthly-summaries-page.js";
 import "./reports-page.js";
 import "./dashboard-page.js";
 import "./journal-page.js";
 import "./styles.css";
 
-type Route = "dashboard" | "weight" | "blood-pressure" | "sleep" | "pap" | "summary-sleep" | "summary-pap" | "report-monthly" | "report-year" | "journal";
-type Category = "dashboard" | "measurements" | "summaries" | "reports" | "journal";
+type Route = "dashboard" | "weight" | "blood-pressure" | "sleep" | "pap" | "report-monthly" | "report-year" | "journal";
+type Category = "dashboard" | "measurements" | "reports" | "journal";
 
 const navigation: Array<{ category: Category; label: string; items: Array<{ route: Route; label: string; hash: string }> }> = [
   { category: "dashboard", label: "Dashboard", items: [{ route: "dashboard", label: "Dashboard", hash: "/" }] },
@@ -20,10 +19,6 @@ const navigation: Array<{ category: Category; label: string; items: Array<{ rout
     { route: "blood-pressure", label: "Blood pressure", hash: "#/measurements/blood-pressure" },
     { route: "sleep", label: "Sleep", hash: "#/measurements/sleep" },
     { route: "pap", label: "PAP", hash: "#/measurements/pap" },
-  ] },
-  { category: "summaries", label: "Summaries", items: [
-    { route: "summary-sleep", label: "Monthly Sleep", hash: "#/summaries/sleep" },
-    { route: "summary-pap", label: "Monthly PAP", hash: "#/summaries/pap" },
   ] },
   { category: "reports", label: "Reports", items: [
     { route: "report-monthly", label: "Monthly overview", hash: "#/reports/monthly" },
@@ -103,13 +98,12 @@ class HealthzApp extends LitElement {
   private handleRouteChange = () => { this.route = routeFromHash(); this.mobileMenuOpen = false; };
   private handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && this.mobileMenuOpen) { this.mobileMenuOpen = false; this.querySelector<HTMLButtonElement>(".menu-toggle")?.focus(); } };
   private handleOutsidePointer = (event: PointerEvent) => { if (this.mobileMenuOpen && !this.querySelector(".navigation-shell")?.contains(event.target as Node)) this.mobileMenuOpen = false; };
-  private get category(): Category { return this.route === "dashboard" ? "dashboard" : this.route === "journal" ? "journal" : this.route.startsWith("summary-") ? "summaries" : this.route.startsWith("report-") ? "reports" : "measurements"; }
+  private get category(): Category { return this.route === "dashboard" ? "dashboard" : this.route === "journal" ? "journal" : this.route.startsWith("report-") ? "reports" : "measurements"; }
   private destination(route: Route) { return navigation.flatMap(({ items }) => items).find((item) => item.route === route)!; }
   private categoryDestination(category: Category) { if (category === this.category) return this.destination(this.route).hash; return navigation.find((item) => item.category === category)!.items[0]!.hash; }
   private renderNavigationItems(category: Category, mobile = false) {
     return navigation.find((item) => item.category === category)!.items.map((item) => html`<a href=${item.hash} aria-current=${this.route === item.route ? "page" : nothing} class=${this.route === item.route ? "active" : ""} @click=${() => { if (mobile) this.mobileMenuOpen = false; }}>${item.label}</a>`);
   }
-  private showSummaryTab(event: CustomEvent<{ tab: "sleep" | "pap" }>) { window.location.hash = event.detail.tab === "sleep" ? "#/summaries/sleep" : "#/summaries/pap"; }
 
   private async loadMeasurements() {
     this.loading = true;
@@ -321,7 +315,7 @@ class HealthzApp extends LitElement {
             </form>
           </aside>
         </div>
-      </main>` : this.route === "blood-pressure" ? html`<blood-pressure-page></blood-pressure-page>` : this.route === "sleep" ? html`<sleep-page></sleep-page>` : this.route === "pap" ? html`<pap-page></pap-page>` : this.route.startsWith("summary-") ? html`<monthly-summaries-page .tab=${this.route === "summary-pap" ? "pap" : "sleep"} @summary-tab-change=${this.showSummaryTab}></monthly-summaries-page>` : html`<reports-page .view=${this.route === "report-year" ? "year" : "monthly"}></reports-page>`}
+      </main>` : this.route === "blood-pressure" ? html`<blood-pressure-page></blood-pressure-page>` : this.route === "sleep" ? html`<sleep-page></sleep-page>` : this.route === "pap" ? html`<pap-page></pap-page>` : html`<reports-page .view=${this.route === "report-year" ? "year" : "monthly"}></reports-page>`}
 
       <footer><span>Healthz</span><span>Your data, clearly kept.</span></footer>
     `;

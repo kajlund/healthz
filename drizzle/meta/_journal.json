@@ -57,6 +57,13 @@
       "when": 1789535053980,
       "tag": "0007_sleep_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789636243251,
+      "tag": "0008_remove_stored_summaries",
+      "breakpoints": true
     }
   ]
 }

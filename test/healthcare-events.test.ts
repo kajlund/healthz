@@ -17,7 +17,7 @@ const row = (overrides: Partial<HealthcareEvent> = {}): HealthcareEvent => ({ id
 const input = { eventDate: "2025-10-14", eventTime: null, title: "Doctor visit", description: null, provider: null, organization: null, location: null, tagIds: [] as string[] };
 const repository = (): HealthcareEventRepository => ({ create: vi.fn().mockResolvedValue(row()), list: vi.fn().mockResolvedValue({ items: [row()], total: 1, latestEventDate: "2025-10-14", page: 1, pageSize: 25 }), findById: vi.fn().mockResolvedValue(row()), update: vi.fn().mockResolvedValue(row()), delete: vi.fn().mockResolvedValue(true), dashboard: vi.fn().mockResolvedValue({ latestPast: null, nextFuture: null }) });
 const empty = { create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() } as unknown as BodyMeasurementRepository;
-const app = (events: HealthcareEventRepository) => createApp(empty, empty as unknown as BloodPressureReadingRepository, empty as unknown as SleepRecordRepository, empty as unknown as PapRecordRepository, undefined, undefined, undefined, undefined, events);
+const app = (events: HealthcareEventRepository) => createApp(empty, empty as unknown as BloodPressureReadingRepository, empty as unknown as SleepRecordRepository, empty as unknown as PapRecordRepository, undefined, undefined, events);
 
 describe("healthcare event validation", () => {
   it("accepts a date-only event without tags and a future date", () => { expect(healthcareEventInputSchema.parse({ ...input, eventDate: "2099-01-01" })).toMatchObject({ eventTime: null, tagIds: [] }); });

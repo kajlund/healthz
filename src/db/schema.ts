@@ -108,51 +108,6 @@ export const papRecords = pgTable(
   ],
 );
 
-export const monthlySleepSummaries = pgTable(
-  "monthly_sleep_summaries",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    summaryMonth: date("summary_month", { mode: "string" }).notNull(),
-    averageTotalSleepMinutes: integer("average_total_sleep_minutes"),
-    averageAwakeMinutes: integer("average_awake_minutes"),
-    averageLightMinutes: integer("average_light_minutes"),
-    averageDeepMinutes: integer("average_deep_minutes"),
-    averageRemMinutes: integer("average_rem_minutes"),
-    averageSleepScore: numeric("average_sleep_score", { precision: 5, scale: 2, mode: "number" }),
-    daysRecorded: integer("days_recorded"),
-    source: text("source").default("manual").notNull(),
-    notes: text("notes"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [
-    uniqueIndex("monthly_sleep_summaries_summary_month_unique").on(table.summaryMonth),
-    index("monthly_sleep_summaries_summary_month_index").on(table.summaryMonth),
-  ],
-);
-
-export const monthlyPapSummaries = pgTable(
-  "monthly_pap_summaries",
-  {
-    id: uuid("id").defaultRandom().primaryKey(),
-    summaryMonth: date("summary_month", { mode: "string" }).notNull(),
-    averageUsageMinutes: integer("average_usage_minutes"),
-    averageEventsPerHour: numeric("average_events_per_hour", { precision: 8, scale: 2, mode: "number" }),
-    averageMaskSealScore: numeric("average_mask_seal_score", { precision: 10, scale: 2, mode: "number" }),
-    averageMaskOnOffCount: numeric("average_mask_on_off_count", { precision: 10, scale: 2, mode: "number" }),
-    averageTotalScore: numeric("average_total_score", { precision: 5, scale: 2, mode: "number" }),
-    daysRecorded: integer("days_recorded"),
-    source: text("source").default("manual").notNull(),
-    notes: text("notes"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [
-    uniqueIndex("monthly_pap_summaries_summary_month_unique").on(table.summaryMonth),
-    index("monthly_pap_summaries_summary_month_index").on(table.summaryMonth),
-  ],
-);
-
 export const healthcareEvents = pgTable(
   "healthcare_events",
   {

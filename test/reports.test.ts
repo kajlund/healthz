@@ -22,8 +22,6 @@ const data = (overrides: Partial<ReportData> = {}): ReportData => ({
     { therapyDate: "2025-01-02", healthDate: "2025-01-03", usageMinutes: 420, eventsPerHour: null, maskSealScore: 18, maskOnOffCount: null, totalScore: 90 },
     { therapyDate: "2025-01-03", healthDate: "2025-01-04", usageMinutes: 480, eventsPerHour: null, maskSealScore: null, maskOnOffCount: 2, totalScore: null },
   ],
-  monthlySleep: [{ summaryMonth: "2025-01-01", averageTotalSleepMinutes: 300, averageAwakeMinutes: 30, averageLightMinutes: null, averageDeepMinutes: null, averageRemMinutes: 100, averageSleepScore: 70, daysRecorded: 31 }],
-  monthlyPap: [{ summaryMonth: "2025-01-01", averageUsageMinutes: 300, averageEventsPerHour: 2.35, averageMaskSealScore: 15, averageMaskOnOffCount: 1.25, averageTotalScore: 70, daysRecorded: 30 }],
   ...overrides,
 });
 const source = (value = data()): ReportingDataSource => ({ load: vi.fn().mockResolvedValue(value) });
@@ -42,22 +40,22 @@ describe("reporting service", () => {
     expect(report.averagePulse).toMatchObject({ value: 70, sampleCount: 2 });
     expect(report).toMatchObject({ readingCount: 3, measuredDayCount: 2 });
   });
-  it("uses metric-level daily-first Sleep fallback without combining values", async () => {
+  it("averages known detailed Sleep values independently", async () => {
     const sleep = (await new ReportingService(source()).monthly("2025-01", "2025-01"))[0]!.sleep;
     expect(sleep.averageTotalSleepMinutes).toEqual({ value: 450, source: "daily", sampleCount: 2 });
     expect(sleep.averageAwakeMinutes).toEqual({ value: 20, source: "daily", sampleCount: 1 });
-    expect(sleep.averageRemMinutes).toEqual({ value: 100, source: "monthly-summary", sampleCount: 31 });
+    expect(sleep.averageRemMinutes).toEqual({ value: null, source: "none", sampleCount: null });
     expect(sleep.averageLightMinutes.value).toBe(250); expect(sleep.averageDeepMinutes.value).toBe(85);
     expect(sleep.averageSleepScore).toEqual({ value: 80, source: "daily", sampleCount: 1 });
   });
-  it("uses mixed PAP sources, preserves decimals and missing values", async () => {
+  it("uses detailed PAP values and preserves missing values", async () => {
     const pap = (await new ReportingService(source()).monthly("2025-01", "2025-01"))[0]!.pap;
     expect(pap.averageUsageMinutes).toEqual({ value: 450, source: "daily", sampleCount: 2 });
-    expect(pap.averageEventsPerHour).toEqual({ value: 2.35, source: "monthly-summary", sampleCount: 30 });
+    expect(pap.averageEventsPerHour).toEqual({ value: null, source: "none", sampleCount: null });
     expect(pap.averageMaskSealScore).toEqual({ value: 18, source: "daily", sampleCount: 1 });
     expect(pap.averageMaskOnOffCount).toEqual({ value: 2, source: "daily", sampleCount: 1 });
-    expect(typeof pap.averageEventsPerHour.value).toBe("number");
-    const empty = (await new ReportingService(source(data({ papRecords: [], monthlyPap: [] }))).monthly("2025-01", "2025-01"))[0]!.pap.averageEventsPerHour;
+    expect(typeof pap.averageUsageMinutes.value).toBe("number");
+    const empty = (await new ReportingService(source(data({ papRecords: [] }))).monthly("2025-01", "2025-01"))[0]!.pap.averageEventsPerHour;
     expect(empty).toEqual({ value: null, source: "none", sampleCount: null });
   });
   it("groups daily PAP by Health date across month and year boundaries", async () => {
@@ -65,21 +63,21 @@ describe("reporting service", () => {
       { therapyDate: "2026-08-31", healthDate: "2026-09-01", usageMinutes: 420, eventsPerHour: 1.5, maskSealScore: null, maskOnOffCount: null, totalScore: null },
       { therapyDate: "2026-12-31", healthDate: "2027-01-01", usageMinutes: 480, eventsPerHour: 0, maskSealScore: null, maskOnOffCount: null, totalScore: null },
     ];
-    const reports = await new ReportingService(source(data({ papRecords, monthlyPap: [] }))).monthly("2026-08", "2027-01");
+    const reports = await new ReportingService(source(data({ papRecords }))).monthly("2026-08", "2027-01");
     expect(reports[0]!.pap.averageUsageMinutes.value).toBeNull(); expect(reports[1]!.pap.averageUsageMinutes.value).toBe(420);
     expect(reports[4]!.pap.averageUsageMinutes.value).toBeNull(); expect(reports[5]!.pap.averageUsageMinutes.value).toBe(480); expect(reports[5]!.pap.averageEventsPerHour.value).toBe(0);
   });
-  it("falls back to Therapy date for legacy PAP without moving monthly summaries", async () => {
+  it("falls back to Therapy date for legacy PAP", async () => {
     const legacy = { therapyDate: "2026-08-31", healthDate: null, usageMinutes: 300, eventsPerHour: null, maskSealScore: null, maskOnOffCount: null, totalScore: null };
-    const reports = await new ReportingService(source(data({ papRecords: [legacy], monthlyPap: [{ summaryMonth: "2026-09-01", averageUsageMinutes: 600, averageEventsPerHour: null, averageMaskSealScore: null, averageMaskOnOffCount: null, averageTotalScore: null, daysRecorded: 30 }] }))).monthly("2026-08", "2026-09");
-    expect(reports[0]!.pap.averageUsageMinutes).toMatchObject({ value: 300, source: "daily" }); expect(reports[1]!.pap.averageUsageMinutes).toMatchObject({ value: 600, source: "monthly-summary" }); expect(legacy.healthDate).toBeNull();
+    const reports = await new ReportingService(source(data({ papRecords: [legacy] }))).monthly("2026-08", "2026-09");
+    expect(reports[0]!.pap.averageUsageMinutes).toMatchObject({ value: 300, source: "daily" }); expect(reports[1]!.pap.averageUsageMinutes).toMatchObject({ value: null, source: "none" }); expect(legacy.healthDate).toBeNull();
   });
-  it("does not shift calendar dates or summary months", async () => {
-    const report = await new ReportingService(source(data({ weights: [{ measuredOn: "2025-02-01", weightKg: 81 }], bloodPressures: [], sleepRecords: [], papRecords: [], monthlySleep: [{ summaryMonth: "2025-02-01", averageTotalSleepMinutes: null, averageAwakeMinutes: null, averageLightMinutes: null, averageDeepMinutes: null, averageRemMinutes: 90, averageSleepScore: null, daysRecorded: 28 }], monthlyPap: [] }))).monthly("2025-01", "2025-02");
-    expect(report[0]!.weight).toBeNull(); expect(report[1]!.weight!.average.value).toBe(81); expect(report[1]!.sleep.averageRemMinutes.value).toBe(90);
+  it("does not shift calendar dates", async () => {
+    const report = await new ReportingService(source(data({ weights: [{ measuredOn: "2025-02-01", weightKg: 81 }], bloodPressures: [], sleepRecords: [], papRecords: [] }))).monthly("2025-01", "2025-02");
+    expect(report[0]!.weight).toBeNull(); expect(report[1]!.weight!.average.value).toBe(81); expect(report[1]!.sleep.averageRemMinutes.value).toBeNull();
   });
   it("returns January through December for deduplicated year inputs", async () => {
-    const reportingSource = source(data({ weights: [], bloodPressures: [], sleepRecords: [], papRecords: [], monthlySleep: [], monthlyPap: [] }));
+    const reportingSource = source(data({ weights: [], bloodPressures: [], sleepRecords: [], papRecords: [] }));
     const series = await new ReportingService(reportingSource).yearOverYear([2024, 2025]);
     expect(series.map(({ year }) => year)).toEqual([2024, 2025]); expect(series[0]!.months).toHaveLength(12); expect(series[0]!.months[0]!.month).toBe("2024-01"); expect(series[1]!.months[11]!.month).toBe("2025-12");
     expect(reportingSource.load).toHaveBeenCalledTimes(1);
@@ -87,8 +85,8 @@ describe("reporting service", () => {
 });
 
 describe("report routes", () => {
-  const repositories = Array.from({ length: 6 }, () => ({ create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() }));
-  const app = (reportingSource = source(data({ weights: [], bloodPressures: [], sleepRecords: [], papRecords: [], monthlySleep: [], monthlyPap: [] }))) => createApp(repositories[0] as never, repositories[1] as never, repositories[2] as never, repositories[3] as never, repositories[4] as never, repositories[5] as never, new ReportingService(reportingSource));
+  const repositories = Array.from({ length: 4 }, () => ({ create: vi.fn(), list: vi.fn(), findById: vi.fn(), update: vi.fn(), delete: vi.fn() }));
+  const app = (reportingSource = source(data({ weights: [], bloodPressures: [], sleepRecords: [], papRecords: [] }))) => createApp(repositories[0] as never, repositories[1] as never, repositories[2] as never, repositories[3] as never, new ReportingService(reportingSource));
   it("returns monthly metadata and includes empty months across a year boundary", async () => { const response = await request(app()).get("/api/reports/monthly?from=2024-12&to=2025-01"); expect(response.status).toBe(200); expect(response.body.meta).toMatchObject({ from: "2024-12", to: "2025-01", monthCount: 2 }); expect(response.body.months.map((item: { month: string }) => item.month)).toEqual(["2024-12", "2025-01"]); });
   it.each(["from=bad&to=2025-01", "from=2025-02&to=2025-01", "from=2000-01&to=2010-01", "to=2025-01"])("rejects invalid monthly query %s", async (query) => { const response = await request(app()).get(`/api/reports/monthly?${query}`); expect(response.status).toBe(400); expect(response.body.error.code).toBe("VALIDATION_ERROR"); });
   it("deduplicates and sorts years", async () => { const response = await request(app()).get("/api/reports/year-over-year?years=2025,2024,2025"); expect(response.status).toBe(200); expect(response.body.meta.years).toEqual([2024, 2025]); expect(response.body.series[0].months).toHaveLength(12); });
@@ -97,5 +95,5 @@ describe("report routes", () => {
 
 describe("report presentation helpers", () => {
   it("formats units and preserves missing values", () => { expect(formatReportValue(null, "weight")).toBe("—"); expect(formatReportValue(82, "weight")).toBe("82.00 kg"); expect(formatReportValue(444, "duration")).toBe("7 h 24 min"); expect(formatReportValue(122, "pressure")).toBe("122.0 mmHg"); });
-  it("provides textual source and sample details", () => { expect(sourceLabel("monthly-summary")).toBe("Summary"); expect(metricDetail({ value: 2.3, source: "daily", sampleCount: 4 })).toBe("Daily · n=4"); expect(metricDetail({ value: null, source: "none", sampleCount: null })).toBe("No data"); });
+  it("provides textual source and sample details", () => { expect(sourceLabel("daily")).toBe("Daily"); expect(metricDetail({ value: 2.3, source: "daily", sampleCount: 4 })).toBe("Daily · n=4"); expect(metricDetail({ value: null, source: "none", sampleCount: null })).toBe("No data"); });
 });

@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { addCalendarDays, boundaryShift, localDateAt, parseCsv, parsePapCsv } from "../src/history-import/core.js";
 
 describe("history import helpers", () => {
+  it("rejects a stored monthly export instead of interpreting it as detailed PAP", () => {
+    expect(() => parsePapCsv("summaryMonth,averageUsageMinutes\n2026-09,420\n")).toThrow();
+  });
   it("parses quoted CSV fields", () => {
     expect(parseCsv('a,b\r\n"x,y","a""b"\r\n')).toEqual([["a", "b"], ["x,y", 'a"b']]);
   });

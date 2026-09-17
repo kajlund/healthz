@@ -3,15 +3,45 @@ import { calculateMonthlyReports, monthsBetween } from "../src/reports/calculati
 import type { ReportData } from "../src/reports/types.js";
 
 const data: ReportData = {
-  weights: [], bloodPressures: [], papRecords: [], monthlyPap: [],
+  weights: [], bloodPressures: [], papRecords: [
+    { therapyDate: "2026-08-31", healthDate: "2026-09-01", usageMinutes: 420, eventsPerHour: 0, maskSealScore: null, maskOnOffCount: null, totalScore: null },
+    { therapyDate: "2026-09-01", healthDate: "2026-09-02", usageMinutes: 480, eventsPerHour: null, maskSealScore: null, maskOnOffCount: null, totalScore: null },
+  ],
   sleepRecords: [
     { sleepDate: "2025-09-01", totalSleepMinutes: 420, awakeCount: 0, awakeMinutes: 18, lightMinutes: 240, deepMinutes: 80, remMinutes: 100, sleepScore: 80, stageCoverage: "complete" },
     { sleepDate: "2026-09-01", totalSleepMinutes: 420, awakeCount: 0, awakeMinutes: 18, lightMinutes: 240, deepMinutes: 80, remMinutes: 100, sleepScore: 80, stageCoverage: "complete" },
     { sleepDate: "2026-09-02", totalSleepMinutes: 460, awakeCount: null, awakeMinutes: null, lightMinutes: null, deepMinutes: null, remMinutes: null, sleepScore: null, stageCoverage: "partial" },
     { sleepDate: "2026-09-03", totalSleepMinutes: 480, awakeCount: 3, awakeMinutes: 18, lightMinutes: null, deepMinutes: null, remMinutes: null, sleepScore: 90, stageCoverage: "none" },
   ],
-  monthlySleep: [{ summaryMonth: "2026-08-01", averageTotalSleepMinutes: 400, averageAwakeMinutes: 20, averageLightMinutes: 200, averageDeepMinutes: 100, averageRemMinutes: 100, averageSleepScore: 80, daysRecorded: 31 }],
 };
+
+test("dashboard navigation offers detailed entry and monthly reports without stored summaries", async ({ page }) => {
+  await setup(page);
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Quick actions" })).toBeVisible();
+  await expect(page.locator('a[href*="/summaries/"]')).toHaveCount(0);
+  await expect(page.locator(".primary-nav")).not.toContainText("Summaries");
+  const pap = page.locator(".snapshot-card").filter({ has: page.getByRole("heading", { name: "PAP", exact: true }) });
+  await pap.getByRole("link").click();
+  await expect(page).toHaveURL(/reports\/monthly\?from=2026-09&to=2026-09/);
+  await expect(page.getByRole("heading", { name: "Monthly overview" })).toBeVisible();
+});
+
+test("PAP monthly statistics use daily values and leave missing months empty", async ({ page }) => {
+  await setup(page);
+  await page.goto("/#/reports/monthly?from=2026-08&to=2026-09&display=table");
+  const pap = page.locator(".report-card").filter({ has: page.getByRole("heading", { name: "PAP", exact: true }) });
+  await expect(pap.locator('[data-label="Usage"]').first()).toContainText("No data");
+  await expect(pap.locator('[data-label="Usage"]').last()).toContainText("7 h 30 min");
+  await expect(pap.locator('[data-label="Usage"]').last()).toContainText("Daily · n=2");
+  await expect(pap.locator('[data-label="Events per hour"]').last()).toContainText("0.00 events/hour");
+  await expect(pap.locator('[data-label="Mask seal score"]').last()).toContainText("No data");
+  await page.goto("/#/reports/monthly?from=2026-08&to=2026-08");
+  for (const name of [/^Sleep/, /^PAP/]) {
+    const card = page.locator(".chart-card").filter({ has: page.getByRole("heading", { name }) });
+    await expect(card).toContainText("No data for this range");
+  }
+});
 const setup = async (page: Page) => {
   await page.route("**/api/**", async (route) => {
     const url = new URL(route.request().url());
@@ -38,7 +68,7 @@ test("Sleep tables distinguish counts and durations with metric samples and dail
   await expect(sleep.locator('[data-label="Average times awake"]').last()).toContainText("Daily · n=2");
   await expect(sleep.locator('[data-label="Average times awake"]').first()).toContainText("No data");
   await expect(sleep.locator('[data-label="Total time awake"]').last()).toContainText("0 h 18 min");
-  await expect(sleep.locator('[data-label="Total time awake"]').first()).toContainText("Summary · n=31");
+  await expect(sleep.locator('[data-label="Total time awake"]').first()).toContainText("No data");
   await expect(sleep.locator(".report-coverage").last()).toContainText("1 complete, 1 partial, 1 without stages");
   await expect(sleep.locator('[data-label="Light sleep"]').last()).toContainText("Daily · n=1");
 });

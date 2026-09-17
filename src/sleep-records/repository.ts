@@ -79,7 +79,7 @@ export const createSleepRecordRepository = (database: typeof db): SleepRecordRep
         const [existing] = await tx.select().from(sleepRecords).where(eq(sleepRecords.id, id)).for("update");
         if (!existing) return undefined;
         if (existing.detailMode === "sessions" && input.detailMode === undefined) {
-          throw new AppError(400, "VALIDATION_ERROR", "Changing to summary requires explicit detailMode and summary values");
+          throw new AppError(400, "VALIDATION_ERROR", "Replacing sessions with nightly measurements requires an explicit detailMode and nightly values");
         }
         const [row] = await tx.update(sleepRecords).set({ ...valuesFromSleepInput(input), updatedAt: new Date() }).where(eq(sleepRecords.id, id)).returning();
         await tx.delete(sleepSessions).where(eq(sleepSessions.sleepRecordId, id));

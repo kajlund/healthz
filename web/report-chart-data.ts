@@ -1,4 +1,4 @@
-import type { ChartData, ChartDataset, PointStyle } from "chart.js";
+import type { ChartData, ChartDataset } from "chart.js";
 import type { MonthlyReport, ReportMetric, YearReportResponse } from "./api.js";
 import { localizedMonth, type ReportFormat } from "./report-format.js";
 
@@ -23,12 +23,11 @@ export const reportChoices: MetricChoice[] = [
 ];
 export const choiceFor = (key: string, fallback = "weight") => reportChoices.find((choice) => choice.key === key) ?? reportChoices.find((choice) => choice.key === fallback)!;
 export const monthLabels = (months: MonthlyReport[]) => months.map(({ month }) => localizedMonth(month));
-export const pointStyleFor = (metric: ReportMetric | null): PointStyle => metric?.source === "monthly-summary" ? "rectRot" : "circle";
 export const hasValues = (metrics: Array<ReportMetric | null>) => metrics.some((metric) => metric?.value !== null && metric?.value !== undefined);
 export const metricsFor = (months: MonthlyReport[], choice: MetricChoice) => months.map(choice.get);
 export const metricDataset = (label: string, metrics: Array<ReportMetric | null>, extras: Partial<ChartDataset<"line", Array<number | null>>> = {}): ChartDataset<"line", Array<number | null>> => ({
   label, data: metrics.map((metric) => metric?.value ?? null), spanGaps: false, tension: 0.2, borderWidth: 2, pointRadius: metrics.map((metric) => metric?.value === null || metric === null ? 0 : 4), pointHoverRadius: 6,
-  pointStyle: metrics.map(pointStyleFor), ...extras,
+  pointStyle: "circle", ...extras,
 });
 export const monthlyChartData = (months: MonthlyReport[], datasets: ChartDataset<"line", Array<number | null>>[]): ChartData<"line", Array<number | null>> => ({ labels: monthLabels(months), datasets });
 export const yearSeriesData = (response: YearReportResponse, choice: MetricChoice): ChartData<"line", Array<number | null>> => ({

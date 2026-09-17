@@ -28,6 +28,13 @@ const papRepository: PapRecordRepository = { create: vi.fn(), list: vi.fn(), fin
 const app = createApp(repository, bloodPressureRepository, sleepRepository, papRepository);
 
 describe("HTTP application", () => {
+  it.each(["monthly-pap-summaries", "monthly-sleep-summaries"])("does not expose obsolete %s routes", async (path) => {
+    for (const method of ["get", "post", "put", "delete"] as const) {
+      const response = await request(app)[method](`/api/${path}`).send({ summaryMonth: "2026-09" });
+      expect(response.status).toBe(404);
+      expect(response.body.error.code).toBe("NOT_FOUND");
+    }
+  });
   it("reports that it is healthy", async () => {
     const response = await request(app).get("/health");
 

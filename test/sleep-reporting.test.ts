@@ -7,9 +7,8 @@ import { choiceFor, metricDataset, yearSeriesData } from "../web/report-chart-da
 import { formatChartTick, formatReportValue, stageCoverageDetail } from "../web/report-format.js";
 import { latestSleepDetail } from "../web/dashboard-helpers.js";
 
-const empty = (): ReportData => ({ weights: [], bloodPressures: [], sleepRecords: [], papRecords: [], monthlySleep: [], monthlyPap: [] });
+const empty = (): ReportData => ({ weights: [], bloodPressures: [], sleepRecords: [], papRecords: [] });
 const summary = { sleepDate: "2026-09-01", totalSleepMinutes: 420, awakeMinutes: 18, lightMinutes: 240, deepMinutes: 80, remMinutes: 100, sleepScore: 80 };
-const monthly = { summaryMonth: "2026-09-01", averageTotalSleepMinutes: 300, averageAwakeMinutes: 12, averageLightMinutes: 200, averageDeepMinutes: 50, averageRemMinutes: 50, averageSleepScore: 70, daysRecorded: 30 };
 const sessions = [{ sessionType: "main-sleep" as const, totalSleepMinutes: 420, sortOrder: 0, awakeCount: 2, awakeMinutes: 18, lightMinutes: 240, deepMinutes: 80, remMinutes: 100 }, { sessionType: "nap" as const, totalSleepMinutes: 40, sortOrder: 1 }];
 const sessionDay = { ...valuesFromSleepInput({ sleepDate: "2026-09-02", source: "watch", detailMode: "sessions", sessions }), stageCoverage: stageCoverage(sessions) };
 const report = (data: ReportData) => calculateMonthlyReports(["2026-09"], data)[0]!.sleep;
@@ -20,12 +19,12 @@ describe("multi-session Sleep reporting", () => {
     expect(result.averageAwakeCount).toEqual({ value: 1.5, source: "daily", sampleCount: 2 });
     expect(result.averageAwakeMinutes.value).toBe(18);
   });
-  it("does not invent an awakenings fallback from monthly summaries", () => {
+  it("returns missing awakenings when no detailed counts exist", () => {
     for (const sleepRecords of [[], [{ ...summary, awakeCount: null }]]) {
-      const result = report({ ...empty(), sleepRecords, monthlySleep: [monthly] });
+      const result = report({ ...empty(), sleepRecords });
       expect(result.averageAwakeCount).toEqual({ value: null, source: "none", sampleCount: null });
     }
-    expect(report({ ...empty(), monthlySleep: [monthly] }).stageCoverage).toEqual({ completeDays: 0, partialDays: 0, noStageDays: 0 });
+    expect(report({ ...empty() }).stageCoverage).toEqual({ completeDays: 0, partialDays: 0, noStageDays: 0 });
   });
   it("uses main sleep plus nap as exactly one observation and never adds children again", () => {
     const result = report({ ...empty(), sleepRecords: [sessionDay] });
@@ -42,19 +41,19 @@ describe("multi-session Sleep reporting", () => {
     expect(result.averageDeepMinutes.sampleCount).toBe(1);
     expect(result.averageRemMinutes.sampleCount).toBe(1);
   });
-  it("retains summary values and metric-specific historical fallback without mutation", () => {
+  it("retains detailed nightly values and missing metrics without mutation", () => {
     const old = { ...summary, remMinutes: null };
-    const data = { ...empty(), sleepRecords: [old], monthlySleep: [monthly] };
+    const data = { ...empty(), sleepRecords: [old] };
     const before = structuredClone(data);
     const result = report(data);
     expect(result.averageTotalSleepMinutes).toEqual({ value: 420, source: "daily", sampleCount: 1 });
     expect(result.averageLightMinutes).toEqual({ value: 240, source: "daily", sampleCount: 1 });
-    expect(result.averageRemMinutes).toEqual({ value: 50, source: "monthly-summary", sampleCount: 30 });
+    expect(result.averageRemMinutes).toEqual({ value: null, source: "none", sampleCount: null });
     expect(result.stageCoverage.partialDays).toBe(1);
     expect(data).toEqual(before);
-    const partial = report({ ...empty(), sleepRecords: [sessionDay], monthlySleep: [monthly] });
+    const partial = report({ ...empty(), sleepRecords: [sessionDay] });
     expect(partial.averageTotalSleepMinutes.value).toBe(460);
-    expect(partial.averageLightMinutes).toEqual({ value: 200, source: "monthly-summary", sampleCount: 30 });
+    expect(partial.averageLightMinutes).toEqual({ value: null, source: "none", sampleCount: null });
   });
   it("compares awakenings year over year, including measured zero and missing months", async () => {
     const service = new ReportingService({ load: async () => ({ ...empty(), sleepRecords: [{ ...summary, sleepDate: "2025-09-01", awakeCount: 0 }, { ...summary, awakeCount: 3 }] }) });

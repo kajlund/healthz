@@ -39,6 +39,7 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== "1")("Sleep PostgreSQL inte
     for (const name of ["0000_shocking_overlord", "0001_goofy_the_watchers", "0003_kind_may_parker", "0004_rare_amazoness", "0005_adorable_sinister_six"]) {
       await pool.query(await readFile(new URL(`../drizzle/${name}.sql`, import.meta.url), "utf8"));
     }
+    await pool.query(await readFile(new URL("../drizzle/0008_remove_stored_summaries.sql", import.meta.url), "utf8"));
     // A database failure after parent writes and child deletion tests real rollback.
     await pool.query("ALTER TABLE sleep_sessions ADD CONSTRAINT test_reject_label CHECK (label <> 'reject')");
     repository = createSleepRecordRepository(drizzle(pool, { logger: { logQuery: (query) => { queries.push(query); } } }));
@@ -56,7 +57,7 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== "1")("Sleep PostgreSQL inte
     const response = await repository.findById(legacy.id as string);
     expect(response).toMatchObject({ detailMode: "summary", awakeCount: null, sessions: [], stageCoverage: "complete", totalSleepMinutes: 444 });
     const old = { sleepDate: "2026-09-15", totalSleepMinutes: 444, awakeMinutes: 31, lightMinutes: 250, deepMinutes: 90, remMinutes: 100, sleepScore: 86 };
-    const base = { weights: [], bloodPressures: [], papRecords: [], monthlySleep: [], monthlyPap: [] };
+    const base = { weights: [], bloodPressures: [], papRecords: [] };
     expect(calculateMonthlyReports(["2026-09"], { ...base, sleepRecords: [response!] })).toEqual(calculateMonthlyReports(["2026-09"], { ...base, sleepRecords: [old] }));
   });
   it("creates sessions through the existing HTTP endpoint with calculated aggregates and coverage", async () => {
@@ -159,7 +160,7 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== "1")("Sleep PostgreSQL inte
     const database = drizzle(pool, { logger: { logQuery: (query) => { queries.push(query); } } });
     queries.length = 0;
     const data = await createReportingDataSource(database).load([{ from: "2031-01", to: "2031-01" }]);
-    expect(queries.filter((query) => query.startsWith("select"))).toHaveLength(6);
+    expect(queries.filter((query) => query.startsWith("select"))).toHaveLength(4);
     expect(data.sleepRecords).toHaveLength(4);
     expect(data.sleepRecords.find(({ sleepDate }) => sleepDate === "2031-01-02")).toMatchObject({ stageCoverage: "partial", totalSleepMinutes: 450, lightMinutes: null, awakeCount: null });
     const report = calculateMonthlyReports(["2031-01"], data)[0]!.sleep;

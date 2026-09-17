@@ -6,11 +6,7 @@ const round = (value: number, decimals: number) => Number(value.toFixed(decimals
 const average = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
 const none = (): ReportMetric => ({ value: null, source: "none", sampleCount: null });
 const dailyMetric = (values: number[], decimals: number): ReportMetric => values.length ? { value: round(average(values), decimals), source: "daily", sampleCount: values.length } : none();
-const fallbackMetric = (daily: Array<number | null>, summary: number | null | undefined, days: number | null | undefined, decimals: number): ReportMetric => {
-  const values = daily.filter((value): value is number => value !== null);
-  if (values.length) return dailyMetric(values, decimals);
-  return summary !== undefined && summary !== null ? { value: round(summary, decimals), source: "monthly-summary", sampleCount: days ?? null } : none();
-};
+const knownMetric = (values: Array<number | null>, decimals: number): ReportMetric => dailyMetric(values.filter((value): value is number => value !== null), decimals);
 const byMonth = (date: string) => date.slice(0, 7);
 
 export const monthsBetween = (from: string, to: string) => {
@@ -35,25 +31,25 @@ export const calculateMonthlyReports = (months: string[], data: ReportData): Mon
   const pulse = dailyValues.flatMap((items) => { const values = items.flatMap((item) => item.pulse === null ? [] : [item.pulse]); return values.length ? [average(values)] : []; });
   const bloodPressure = readings.length ? { averageSystolic: dailyMetric(systolic, 1), averageDiastolic: dailyMetric(diastolic, 1), averagePulse: dailyMetric(pulse, 1), readingCount: readings.length, measuredDayCount: daily.size } : null;
 
-  const sleepDaily = data.sleepRecords.filter((item) => byMonth(item.sleepDate) === month); const sleepSummary = data.monthlySleep.find((item) => byMonth(item.summaryMonth) === month);
+  const sleepDaily = data.sleepRecords.filter((item) => byMonth(item.sleepDate) === month);
   const coverage = sleepDaily.map((item) => item.stageCoverage ?? stageCoverage([item]));
   const sleep: SleepReport = {
     averageAwakeCount: dailyMetric(sleepDaily.flatMap((item) => item.awakeCount == null ? [] : [item.awakeCount]), 2),
     stageCoverage: { completeDays: coverage.filter((value) => value === "complete").length, partialDays: coverage.filter((value) => value === "partial").length, noStageDays: coverage.filter((value) => value === "none").length },
-    averageTotalSleepMinutes: fallbackMetric(sleepDaily.map((item) => item.totalSleepMinutes), sleepSummary?.averageTotalSleepMinutes, sleepSummary?.daysRecorded, 0),
-    averageAwakeMinutes: fallbackMetric(sleepDaily.map((item) => item.awakeMinutes), sleepSummary?.averageAwakeMinutes, sleepSummary?.daysRecorded, 0),
-    averageLightMinutes: fallbackMetric(sleepDaily.map((item) => item.lightMinutes), sleepSummary?.averageLightMinutes, sleepSummary?.daysRecorded, 0),
-    averageDeepMinutes: fallbackMetric(sleepDaily.map((item) => item.deepMinutes), sleepSummary?.averageDeepMinutes, sleepSummary?.daysRecorded, 0),
-    averageRemMinutes: fallbackMetric(sleepDaily.map((item) => item.remMinutes), sleepSummary?.averageRemMinutes, sleepSummary?.daysRecorded, 0),
-    averageSleepScore: fallbackMetric(sleepDaily.map((item) => item.sleepScore), sleepSummary?.averageSleepScore, sleepSummary?.daysRecorded, 2),
+    averageTotalSleepMinutes: knownMetric(sleepDaily.map((item) => item.totalSleepMinutes), 0),
+    averageAwakeMinutes: knownMetric(sleepDaily.map((item) => item.awakeMinutes), 0),
+    averageLightMinutes: knownMetric(sleepDaily.map((item) => item.lightMinutes), 0),
+    averageDeepMinutes: knownMetric(sleepDaily.map((item) => item.deepMinutes), 0),
+    averageRemMinutes: knownMetric(sleepDaily.map((item) => item.remMinutes), 0),
+    averageSleepScore: knownMetric(sleepDaily.map((item) => item.sleepScore), 2),
   };
-  const papDaily = data.papRecords.filter((item) => byMonth(effectivePapHealthDate(item)) === month); const papSummary = data.monthlyPap.find((item) => byMonth(item.summaryMonth) === month);
+  const papDaily = data.papRecords.filter((item) => byMonth(effectivePapHealthDate(item)) === month);
   const pap: PapReport = {
-    averageUsageMinutes: fallbackMetric(papDaily.map((item) => item.usageMinutes), papSummary?.averageUsageMinutes, papSummary?.daysRecorded, 0),
-    averageEventsPerHour: fallbackMetric(papDaily.map((item) => item.eventsPerHour), papSummary?.averageEventsPerHour, papSummary?.daysRecorded, 2),
-    averageMaskSealScore: fallbackMetric(papDaily.map((item) => item.maskSealScore), papSummary?.averageMaskSealScore, papSummary?.daysRecorded, 2),
-    averageMaskOnOffCount: fallbackMetric(papDaily.map((item) => item.maskOnOffCount), papSummary?.averageMaskOnOffCount, papSummary?.daysRecorded, 2),
-    averageTotalScore: fallbackMetric(papDaily.map((item) => item.totalScore), papSummary?.averageTotalScore, papSummary?.daysRecorded, 2),
+    averageUsageMinutes: knownMetric(papDaily.map((item) => item.usageMinutes), 0),
+    averageEventsPerHour: knownMetric(papDaily.map((item) => item.eventsPerHour), 2),
+    averageMaskSealScore: knownMetric(papDaily.map((item) => item.maskSealScore), 2),
+    averageMaskOnOffCount: knownMetric(papDaily.map((item) => item.maskOnOffCount), 2),
+    averageTotalScore: knownMetric(papDaily.map((item) => item.totalScore), 2),
   };
   return { month, weight, bloodPressure, sleep, pap };
 });

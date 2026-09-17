@@ -157,36 +157,7 @@ export const papRecordsApi = {
   delete: (id: string) => request<void>(`/api/pap-records/${id}`, { method: "DELETE" }),
 };
 
-export interface MonthlySleepSummary {
-  id: string; summaryMonth: string; averageTotalSleepMinutes: number | null;
-  averageAwakeMinutes: number | null; averageLightMinutes: number | null;
-  averageDeepMinutes: number | null; averageRemMinutes: number | null;
-  averageSleepScore: number | null; daysRecorded: number | null; source: string;
-  notes: string | null; createdAt: string; updatedAt: string;
-}
-export type MonthlySleepSummaryInput = Omit<MonthlySleepSummary, "id" | "createdAt" | "updatedAt">;
-export interface MonthlyPapSummary {
-  id: string; summaryMonth: string; averageUsageMinutes: number | null;
-  averageEventsPerHour: number | null; averageMaskSealScore: number | null;
-  averageMaskOnOffCount: number | null; averageTotalScore: number | null;
-  daysRecorded: number | null; source: string; notes: string | null;
-  createdAt: string; updatedAt: string;
-}
-export type MonthlyPapSummaryInput = Omit<MonthlyPapSummary, "id" | "createdAt" | "updatedAt">;
-export const monthlySleepSummariesApi = {
-  list: () => request<MonthlySleepSummary[]>("/api/monthly-sleep-summaries"),
-  create: (input: MonthlySleepSummaryInput) => request<MonthlySleepSummary>("/api/monthly-sleep-summaries", { method: "POST", body: JSON.stringify(input) }),
-  update: (id: string, input: MonthlySleepSummaryInput) => request<MonthlySleepSummary>(`/api/monthly-sleep-summaries/${id}`, { method: "PUT", body: JSON.stringify(input) }),
-  delete: (id: string) => request<void>(`/api/monthly-sleep-summaries/${id}`, { method: "DELETE" }),
-};
-export const monthlyPapSummariesApi = {
-  list: () => request<MonthlyPapSummary[]>("/api/monthly-pap-summaries"),
-  create: (input: MonthlyPapSummaryInput) => request<MonthlyPapSummary>("/api/monthly-pap-summaries", { method: "POST", body: JSON.stringify(input) }),
-  update: (id: string, input: MonthlyPapSummaryInput) => request<MonthlyPapSummary>(`/api/monthly-pap-summaries/${id}`, { method: "PUT", body: JSON.stringify(input) }),
-  delete: (id: string) => request<void>(`/api/monthly-pap-summaries/${id}`, { method: "DELETE" }),
-};
-
-export type ReportSource = "daily" | "monthly-summary" | "none";
+export type ReportSource = "daily" | "none";
 export interface ReportMetric { value: number | null; source: ReportSource; sampleCount: number | null; }
 export interface MonthlyReport {
   month: string;
