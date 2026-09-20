@@ -15,16 +15,100 @@ const validMonth = (value: string | null, fallback: string) => value && /^\d{4}-
 export class ReportsPage extends LitElement {
   static properties = { view: {}, from: { state: true }, to: { state: true }, years: { state: true }, selectedMetric: { state: true }, display: { state: true }, sleepMetric: { state: true }, papMetric: { state: true }, showPulse: { state: true }, months: { state: true }, comparison: { state: true }, loading: { state: true }, error: { state: true } };
   declare view: View; declare private from: string; declare private to: string; declare private years: string; declare private selectedMetric: string; declare private display: Display; declare private sleepMetric: string; declare private papMetric: string; declare private showPulse: boolean; declare private months: MonthlyReport[]; declare private comparison: YearReportResponse | null; declare private loading: boolean; declare private error: string | null;
+  private loadedRange: string | null = null;
+  private loadedYears: string | null = null;
+
   constructor() { super(); const range = latestRange(); this.view = "monthly"; this.from = range.from; this.to = range.to; this.years = String(new Date().getFullYear()); this.selectedMetric = "weight"; this.display = "chart"; this.sleepMetric = "sleep-total"; this.papMetric = "pap-usage"; this.showPulse = false; this.months = []; this.comparison = null; this.loading = false; this.error = null; }
   protected createRenderRoot() { return this; }
-  connectedCallback() { super.connectedCallback(); window.addEventListener("hashchange", this.onHash); this.readUrl(); void this.load(); }
+  connectedCallback() { super.connectedCallback(); window.addEventListener("hashchange", this.onHash); void this.syncAndLoad(); }
   disconnectedCallback() { window.removeEventListener("hashchange", this.onHash); super.disconnectedCallback(); }
-  private onHash = () => { if (this.readUrl()) void this.load(); };
-  protected updated(changed: Map<PropertyKey, unknown>) { if (changed.has("view") && changed.get("view") !== undefined && this.readUrl()) void this.load(); }
-  private readUrl() { const p = params(); const range = latestRange(); const old = this.view === "monthly" ? `${this.from}/${this.to}` : this.years; this.display = p.get("display") === "table" ? "table" : "chart"; if (this.view === "monthly") { this.from = validMonth(p.get("from"), range.from); this.to = validMonth(p.get("to"), range.to); this.sleepMetric = validMetricKey(p.get("sleepMetric"), "sleep-"); this.papMetric = validMetricKey(p.get("papMetric"), "pap-"); this.showPulse = p.get("pulse") === "true"; } else { this.years = p.get("years") ?? String(new Date().getFullYear()); this.selectedMetric = validMetricKey(p.get("metric")); } return old !== (this.view === "monthly" ? `${this.from}/${this.to}` : this.years); }
-  private async load() { this.loading = true; this.error = null; try { if (this.view === "monthly") this.months = (await reportsApi.monthly(this.from, this.to)).months; else { const raw = this.years.split(",").map((v) => v.trim()); if (raw.some((v) => !/^\d{4}$/.test(v))) throw new Error("Enter calendar years as four digits, separated by commas."); const years = [...new Set(raw.map(Number))]; if (!years.length || years.length > 4) throw new Error("Choose between one and four years."); this.comparison = await reportsApi.yearOverYear(years); } } catch (error) { this.error = error instanceof Error ? error.message : "Unable to load report."; } finally { this.loading = false; } }
-  private navigate(values: Record<string, string>) { const p = params(); Object.entries(values).forEach(([key, value]) => p.set(key, value)); window.location.hash = `${this.view === "monthly" ? "#/reports/monthly" : "#/reports/year-comparison"}?${p}`; }
-  private apply(event: SubmitEvent) { event.preventDefault(); this.navigate(this.view === "monthly" ? { from: this.from, to: this.to } : { years: this.years, metric: this.selectedMetric }); }
+  private onHash = () => { void this.syncAndLoad(); };
+  protected updated(changed: Map<PropertyKey, unknown>) { if (changed.has("view") && changed.get("view") !== undefined) void this.syncAndLoad(); }
+
+  private parseYears(input: string): number[] {
+    const raw = input.split(",").map((v) => v.trim()).filter(Boolean);
+    if (!raw.length || raw.some((v) => !/^\d{4}$/.test(v))) throw new Error("Enter calendar years as four digits, separated by commas.");
+    const years = [...new Set(raw.map(Number))].sort((a, b) => a - b);
+    if (years.length > 4) throw new Error("Choose between one and four years.");
+    return years;
+  }
+
+  private readUrl() {
+    const hash = window.location.hash;
+    const path = hash.split("?")[0];
+    if (path === "#/reports/year-comparison") this.view = "year";
+    else if (path === "#/reports/monthly") this.view = "monthly";
+
+    const p = params();
+    const range = latestRange();
+    this.display = p.get("display") === "table" ? "table" : "chart";
+    if (this.view === "monthly") {
+      this.from = validMonth(p.get("from"), range.from);
+      this.to = validMonth(p.get("to"), range.to);
+      this.sleepMetric = validMetricKey(p.get("sleepMetric"), "sleep-");
+      this.papMetric = validMetricKey(p.get("papMetric"), "pap-");
+      this.showPulse = p.get("pulse") === "true";
+    } else {
+      if (p.has("years")) this.years = p.get("years")!;
+      this.selectedMetric = validMetricKey(p.get("metric"));
+    }
+  }
+
+  private async syncAndLoad(force = false) {
+    this.readUrl();
+    if (this.view === "monthly") {
+      const rangeKey = `${this.from}/${this.to}`;
+      if (force || this.loadedRange !== rangeKey || !this.months.length) {
+        await this.load();
+      }
+    } else {
+      let yearsKey = "";
+      try {
+        yearsKey = this.parseYears(this.years).join(",");
+      } catch {
+        await this.load();
+        return;
+      }
+      if (force || this.loadedYears !== yearsKey || !this.comparison) {
+        await this.load();
+      }
+    }
+  }
+
+  private async load() {
+    this.loading = true;
+    this.error = null;
+    try {
+      if (this.view === "monthly") {
+        this.months = (await reportsApi.monthly(this.from, this.to)).months;
+        this.loadedRange = `${this.from}/${this.to}`;
+      } else {
+        const years = this.parseYears(this.years);
+        this.comparison = await reportsApi.yearOverYear(years);
+        this.loadedYears = years.join(",");
+      }
+    } catch (error) {
+      this.error = error instanceof Error ? error.message : "Unable to load report.";
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  private navigate(values: Record<string, string>) {
+    const p = params();
+    Object.entries(values).forEach(([key, value]) => p.set(key, value));
+    const next = `${this.view === "monthly" ? "#/reports/monthly" : "#/reports/year-comparison"}?${p}`;
+    if (window.location.hash === next) {
+      void this.syncAndLoad(true);
+    } else {
+      window.location.hash = next;
+    }
+  }
+
+  private apply(event: SubmitEvent) {
+    event.preventDefault();
+    this.navigate(this.view === "monthly" ? { from: this.from, to: this.to } : { years: this.years, metric: this.selectedMetric });
+  }
   private metric(metric: ReportMetric, format: ReportFormat) { return html`<span class="report-value">${formatReportValue(metric.value, format)}</span><small class=${`source-badge source-${metric.source}`}>${metricDetail(metric)}</small>`; }
   private section(title: string, columns: Array<{ label: string; format: ReportFormat; get: (r: MonthlyReport) => ReportMetric | null }>) {
     return html`<section class="report-card"><div class="card-heading"><div><span class="eyebrow">Monthly report</span><h2>${title}</h2></div></div>
@@ -45,6 +129,6 @@ export class ReportsPage extends LitElement {
   private monthlyTables() { const mapped = (prefix: string) => reportChoices.filter((c) => c.key.startsWith(prefix)).map(({ label, format, get }) => ({ label, format, get })); return html`${this.section("Weight", [{ label: "Average", format: "weight", get: (r) => r.weight?.average ?? null }, { label: "Minimum", format: "weight", get: (r) => r.weight?.minimum ?? null }, { label: "Maximum", format: "weight", get: (r) => r.weight?.maximum ?? null }, { label: "First", format: "weight", get: (r) => r.weight?.first ?? null }, { label: "Last", format: "weight", get: (r) => r.weight?.last ?? null }])}${this.section("Blood pressure", [{ label: "Systolic", format: "pressure", get: (r) => r.bloodPressure?.averageSystolic ?? null }, { label: "Diastolic", format: "pressure", get: (r) => r.bloodPressure?.averageDiastolic ?? null }, { label: "Pulse", format: "pulse", get: (r) => r.bloodPressure?.averagePulse ?? null }])}${this.section("Sleep", mapped("sleep-"))}${this.section("PAP", mapped("pap-"))}`; }
   private comparisonView() { if (!this.comparison) return nothing; const choice = choiceFor(this.selectedMetric); if (this.display === "chart") { const sets = this.comparison.series.filter(({ months }) => metricsFor(months, choice).some((m) => m?.value != null)).map(({ months }) => metricsFor(months, choice)); return this.card(choice.label, `January through December comparison for ${this.comparison.meta.years.join(", ")}.`, yearSeriesData(this.comparison, choice), this.options(choice.format, sets, (dataset, index) => this.selectedMetric.startsWith("sleep-") ? [stageCoverageDetail(this.comparison!.series.filter(({ months }) => metricsFor(months, choice).some((m) => m?.value != null))[dataset]!.months[index]!.sleep.stageCoverage)] : [])); } return html`<section class="report-card"><div class="card-heading"><div><span class="eyebrow">Year comparison</span><h2>${choice.label}</h2></div></div><div><div class="comparison-row comparison-head"><span>Month</span>${this.comparison.meta.years.map((y) => html`<span>${y}</span>`)}</div>${Array.from({ length: 12 }, (_, i) => html`<div class="comparison-row"><strong>${new Intl.DateTimeFormat(undefined, { month: "long" }).format(new Date(2024, i, 1, 12))}</strong>${this.comparison!.series.map(({ year, months }) => { const value = choice.get(months[i]!); return html`<div data-year=${year}>${value ? this.metric(value, choice.format) : html`<span>—</span><small>No data</small>`}${this.selectedMetric.startsWith("sleep-") ? html`<small class="comparison-coverage">${stageCoverageDetail(months[i]!.sleep.stageCoverage)}</small>` : nothing}</div>`; })}</div>`)}</div></section>`; }
   private switcher() { return html`<fieldset class="view-switch"><legend>Display</legend>${(["chart", "table"] as Display[]).map((value) => html`<button type="button" class=${this.display === value ? "active" : ""} aria-pressed=${this.display === value} @click=${() => this.navigate({ display: value })}>${value === "chart" ? "Charts" : "Tables"}</button>`)}</fieldset>`; }
-  render() { return html`<main><section class="page-heading"><div><span class="eyebrow">Reporting</span><h1>${this.view === "monthly" ? "Monthly overview" : "Year comparison"}</h1><p>Statistics are calculated from detailed records. Missing measurements remain empty.</p></div><span class="section-index">06</span></section><section class="report-controls"><form @submit=${this.apply}>${this.view === "monthly" ? html`<label>From month<input type="month" required .value=${this.from} @input=${(e: InputEvent) => this.from = (e.target as HTMLInputElement).value}></label><label>To month<input type="month" required .value=${this.to} @input=${(e: InputEvent) => this.to = (e.target as HTMLInputElement).value}></label>` : html`<label>Years <span>1–4, comma-separated</span><input required .value=${this.years} @input=${(e: InputEvent) => this.years = (e.target as HTMLInputElement).value}></label><label>Metric<select .value=${this.selectedMetric} @change=${(e: Event) => this.selectedMetric = (e.target as HTMLSelectElement).value}>${reportChoices.map((c) => html`<option value=${c.key}>${c.label}</option>`)}</select></label>`}<button class="primary-button" ?disabled=${this.loading}>${this.loading ? "Loading…" : "Apply"}</button></form>${this.switcher()}</section>${this.error ? html`<div class="error-banner" role="alert"><strong>Unable to load report.</strong><span>${this.error}</span></div>` : nothing}${this.loading ? html`<div class="state"><span class="spinner"></span>Loading report…</div>` : this.view === "monthly" ? (this.display === "chart" ? this.monthlyCharts() : this.monthlyTables()) : this.comparisonView()}</main>`; }
+  render() { return html`<main><section class="page-heading"><div><span class="eyebrow">Reporting</span><h1>${this.view === "monthly" ? "Monthly overview" : "Year comparison"}</h1><p>Statistics are calculated from detailed records. Missing measurements remain empty.</p></div><span class="section-index">06</span></section><section class="report-controls"><form @submit=${this.apply}>${this.view === "monthly" ? html`<label>From month<input type="month" required .value=${this.from} @input=${(e: InputEvent) => this.from = (e.target as HTMLInputElement).value}></label><label>To month<input type="month" required .value=${this.to} @input=${(e: InputEvent) => this.to = (e.target as HTMLInputElement).value}></label>` : html`<label>Years <span>1–4, comma-separated</span><input required .value=${this.years} @input=${(e: InputEvent) => this.years = (e.target as HTMLInputElement).value} @change=${(e: Event) => this.navigate({ years: (e.target as HTMLInputElement).value, metric: this.selectedMetric })}></label><label>Metric<select .value=${this.selectedMetric} @change=${(e: Event) => this.navigate({ metric: (e.target as HTMLSelectElement).value, years: this.years })}>${reportChoices.map((c) => html`<option value=${c.key} ?selected=${this.selectedMetric === c.key}>${c.label}</option>`)}</select></label>`}<button class="primary-button" ?disabled=${this.loading}>${this.loading ? "Loading…" : "Apply"}</button></form>${this.switcher()}</section>${this.error ? html`<div class="error-banner" role="alert"><strong>Unable to load report.</strong><span>${this.error}</span></div>` : nothing}${this.loading ? html`<div class="state"><span class="spinner"></span>Loading report…</div>` : this.view === "monthly" ? (this.display === "chart" ? this.monthlyCharts() : this.monthlyTables()) : this.comparisonView()}</main>`; }
 }
 customElements.define("reports-page", ReportsPage);
