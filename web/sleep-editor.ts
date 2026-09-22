@@ -1,6 +1,7 @@
 import { createSleepRecordSchema } from "../src/sleep-records/schemas.js";
 import { aggregateSessions, stageCoverage } from "../src/sleep-records/service.js";
 import type { SleepRecord, SleepRecordInput, SleepSession, SleepSessionInput } from "./api.js";
+import { previousCalendarDay } from "./pap-date.js";
 
 export type DetailMode = "summary" | "sessions";
 export type DurationKey = "totalSleepMinutes" | "awakeMinutes" | "lightMinutes" | "deepMinutes" | "remMinutes";
@@ -52,10 +53,46 @@ export const sessionDraft = (session: SleepSession): SessionDraft => ({
   originalStartedAt: session.startedAt, originalEndedAt: session.endedAt,
   detailsOpen: session.sessionType === "main-sleep" || [session.startedAt, session.endedAt, session.label, session.source, session.awakeCount, session.awakeMinutes, session.deepMinutes, session.lightMinutes, session.remMinutes].some((value) => value != null && value !== ""),
 });
-export const newSleepDraft = (): SleepDraft => ({
-  id: null, originalMode: "sessions", detailMode: "sessions", sleepDate: localDateTime(new Date()).slice(0, 10),
-  summary: measurementDraft(), sessions: [newSession()], sleepScore: "", source: "manual", notes: "",
-});
+export const defaultMainSleepTimes = (toDate: string) => {
+  const fromDate = previousCalendarDay(toDate);
+  return {
+    startedAt: fromDate ? `${fromDate}T23:00` : "",
+    endedAt: `${toDate}T07:00`,
+  };
+};
+export const firstSessionToDate = (draft: { sleepDate: string; sessions: Array<Pick<SessionDraft, "endedAt">> }): string => {
+  const firstEndedAt = draft.sessions[0]?.endedAt;
+  if (firstEndedAt && firstEndedAt.includes("T")) {
+    const toDate = firstEndedAt.slice(0, firstEndedAt.indexOf("T"));
+    if (/^\d{4}-\d{2}-\d{2}$/.test(toDate)) return toDate;
+  }
+  return draft.sleepDate;
+};
+export const syncNapDates = (sessions: SessionDraft[], toDate: string): SessionDraft[] => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(toDate)) return sessions;
+  return sessions.map((session, index) => {
+    if (index === 0 || session.sessionType !== "nap" || (!session.startedAt && !session.endedAt)) return session;
+    const startTime = session.startedAt.includes("T") ? session.startedAt.slice(session.startedAt.indexOf("T")) : "";
+    const endTime = session.endedAt.includes("T") ? session.endedAt.slice(session.endedAt.indexOf("T")) : "";
+    return {
+      ...session,
+      startedAt: startTime ? `${toDate}${startTime}` : session.startedAt,
+      endedAt: endTime ? `${toDate}${endTime}` : session.endedAt,
+    };
+  });
+};
+export const newSleepDraft = (initialDate?: string): SleepDraft => {
+  const sleepDate = initialDate ?? localDateTime(new Date()).slice(0, 10);
+  return {
+    id: null, originalMode: "sessions", detailMode: "sessions", sleepDate,
+    summary: measurementDraft(),
+    sessions: [{
+      ...newSession("main-sleep"),
+      ...defaultMainSleepTimes(sleepDate),
+    }],
+    sleepScore: "", source: "manual", notes: "",
+  };
+};
 export const draftFromRecord = (record: SleepRecord): SleepDraft => ({
   id: record.id, originalMode: record.detailMode, detailMode: record.detailMode, sleepDate: record.sleepDate,
   summary: measurementDraft(record), sessions: record.sessions.map(sessionDraft), sleepScore: record.sleepScore == null ? "" : String(record.sleepScore),

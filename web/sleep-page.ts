@@ -1,14 +1,15 @@
-﻿import { LitElement, html, nothing } from "lit";
+import { LitElement, html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { sleepRecordsApi, type SleepRecord, type SleepSession } from "./api.js";
 import {
-  coverageLabels, draftFromRecord, formatDuration, moveSession, newSession, newSleepDraft,
-  durationValue, previewSessions, removeSession, typeLabels, validateDraft,
+  coverageLabels, defaultMainSleepTimes, draftFromRecord, firstSessionToDate, formatDuration, moveSession, newSession, newSleepDraft,
+  durationValue, previewSessions, removeSession, syncNapDates, typeLabels, validateDraft,
   type DurationDraft, type DurationKey, type FieldErrors, type MeasurementsDraft, type SessionDraft, type SleepDraft,
 } from "./sleep-editor.js";
 import type { RecordActions } from "./record-actions.js";
 import "./record-actions.js";
 import { parseSleepRoute, sleepEditorUrl, type SleepRoute } from "./sleep-routes.js";
+import { previousCalendarDay } from "./pap-date.js";
 
 export class SleepPage extends LitElement {
   static properties = {
@@ -52,6 +53,30 @@ export class SleepPage extends LitElement {
   }
   private returnToList() { window.location.hash = this.route.returnTo; }
   private setField(key: "sleepDate" | "sleepScore" | "source" | "notes", value: string) {
+    if (key === "sleepDate" && !this.draft.id) {
+      const fromDate = previousCalendarDay(value);
+      const toDate = value;
+      let sessions = fromDate && toDate
+        ? this.draft.sessions.map((session, index) => {
+            if (index === 0 || session.sessionType === "main-sleep") {
+              const startTime = session.startedAt.includes("T") ? session.startedAt.slice(session.startedAt.indexOf("T")) : "T23:00";
+              const endTime = session.endedAt.includes("T") ? session.endedAt.slice(session.endedAt.indexOf("T")) : "T07:00";
+              return {
+                ...session,
+                startedAt: session.startedAt ? `${fromDate}${startTime}` : session.startedAt,
+                endedAt: session.endedAt ? `${toDate}${endTime}` : session.endedAt,
+              };
+            }
+            return session;
+          })
+        : this.draft.sessions;
+      if (toDate) {
+        sessions = syncNapDates(sessions, toDate);
+      }
+      this.draft = { ...this.draft, sleepDate: value, sessions };
+      this.clearError(key);
+      return;
+    }
     this.draft = { ...this.draft, [key]: value }; this.clearError(key);
   }
   private clearError(key: string) { const errors = { ...this.errors }; delete errors[key]; this.errors = errors; this.notice = ""; }
@@ -59,11 +84,28 @@ export class SleepPage extends LitElement {
     this.draft = { ...this.draft, summary: { ...this.draft.summary, [key]: value } }; this.clearError(key);
   }
   private setSession(index: number, change: Partial<SessionDraft>, field?: string) {
-    this.draft = { ...this.draft, sessions: this.draft.sessions.map((session, i) => i === index ? { ...session, ...change } : session) };
+    if (change.sessionType === "main-sleep") {
+      const current = this.draft.sessions[index];
+      if (current && !current.startedAt && !current.endedAt) {
+        const toDate = firstSessionToDate(this.draft);
+        change = { ...change, ...defaultMainSleepTimes(toDate) };
+      }
+    }
+    let sessions = this.draft.sessions.map((session, i) => i === index ? { ...session, ...change } : session);
+    if (index === 0 && change.endedAt !== undefined && !this.draft.id) {
+      const toDate = change.endedAt.includes("T") ? change.endedAt.slice(0, change.endedAt.indexOf("T")) : "";
+      sessions = syncNapDates(sessions, toDate);
+    }
+    this.draft = { ...this.draft, sessions };
     if (field) this.clearError(`sessions.${index}.${field}`);
   }
   private async addSession() {
-    const session = newSession(this.draft.sessions.length ? "nap" : "main-sleep");
+    const sessionType = this.draft.sessions.length ? "nap" : "main-sleep";
+    const session = newSession(sessionType);
+    if (!this.draft.id && sessionType === "main-sleep") {
+      const toDate = firstSessionToDate(this.draft);
+      Object.assign(session, defaultMainSleepTimes(toDate));
+    }
     this.draft = { ...this.draft, sessions: [...this.draft.sessions, session] }; this.errors = {}; this.notice = "Session added.";
     await this.updateComplete;
     this.querySelector<HTMLSelectElement>(`#${session.key}-type`)?.focus();

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { draftFromRecord, durationDraft, localDateTime, measurementDraft, moveSession, newSession, newSleepDraft, previewSessions, removeSession, serializeLocalTime, validateDraft } from "../web/sleep-editor.js";
+import { defaultMainSleepTimes, draftFromRecord, durationDraft, firstSessionToDate, localDateTime, measurementDraft, moveSession, newSession, newSleepDraft, previewSessions, removeSession, serializeLocalTime, syncNapDates, validateDraft } from "../web/sleep-editor.js";
+import { previousCalendarDay } from "../web/pap-date.js";
 import type { SleepRecord } from "../web/api.js";
 
 const record: SleepRecord = { id: "legacy", detailMode: "summary", sleepDate: "2026-09-15", totalSleepMinutes: 444, awakeMinutes: 18, awakeCount: null, lightMinutes: 240, deepMinutes: 100, remMinutes: 104, sleepScore: 86, source: "manual", notes: null, sessions: [], stageCoverage: "complete", createdAt: "2026-09-15T08:00:00Z", updatedAt: "2026-09-15T08:00:00Z" };
@@ -26,6 +27,40 @@ describe("Sleep editor drafts", () => {
     expect(draftFromRecord(record).sessions).toEqual([]);
     expect(draftFromRecord(record).detailMode).toBe("summary");
     expect(validateDraft(draft).errors["sessions.0.totalSleepMinutes"]).toBeTruthy();
+  });
+  it("defaults From to Sleep date - 1 day and To to Sleep date when adding sleep entries", () => {
+    const draft = newSleepDraft();
+    const today = draft.sleepDate;
+    const yesterday = previousCalendarDay(today);
+    expect(draft.sessions[0]!.startedAt).toBe(`${yesterday}T23:00`);
+    expect(draft.sessions[0]!.endedAt).toBe(`${today}T07:00`);
+
+    const customDateDraft = newSleepDraft("2026-08-15");
+    expect(customDateDraft.sessions[0]!.startedAt).toBe("2026-08-14T23:00");
+    expect(customDateDraft.sessions[0]!.endedAt).toBe("2026-08-15T07:00");
+  });
+  it("determines the To date of the first session with a fallback to sleepDate", () => {
+    const draft = newSleepDraft("2026-09-15");
+    expect(firstSessionToDate(draft)).toBe("2026-09-15");
+    draft.sessions[0]!.endedAt = "2026-09-16T08:00";
+    expect(firstSessionToDate(draft)).toBe("2026-09-16");
+    draft.sessions[0]!.endedAt = "";
+    expect(firstSessionToDate(draft)).toBe("2026-09-15");
+    expect(defaultMainSleepTimes("2026-09-16")).toEqual({
+      startedAt: "2026-09-15T23:00",
+      endedAt: "2026-09-16T07:00",
+    });
+  });
+  it("syncs existing nap dates while preserving times and leaving blank naps untouched", () => {
+    const mainSession = { ...newSession("main-sleep"), startedAt: "2026-09-14T23:00", endedAt: "2026-09-15T07:00" };
+    const timedNap = { ...newSession("nap"), startedAt: "2026-09-15T13:00", endedAt: "2026-09-15T14:00" };
+    const blankNap = { ...newSession("nap"), startedAt: "", endedAt: "" };
+    const synced = syncNapDates([mainSession, timedNap, blankNap], "2026-09-16");
+    expect(synced[0]!.startedAt).toBe("2026-09-14T23:00");
+    expect(synced[1]!.startedAt).toBe("2026-09-16T13:00");
+    expect(synced[1]!.endedAt).toBe("2026-09-16T14:00");
+    expect(synced[2]!.startedAt).toBe("");
+    expect(synced[2]!.endedAt).toBe("");
   });
   it("serializes main sleep plus a duration-only nap without parent aggregates or child IDs", () => {
     const draft = newSleepDraft();
