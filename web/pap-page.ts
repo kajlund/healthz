@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from "lit";
 
 import { papRecordsApi, type PapRecord, type PapRecordInput } from "./api.js";
-import { followingCalendarDay } from "./pap-date.js";
+import { followingCalendarDay, previousCalendarDay } from "./pap-date.js";
 
 const today = () => {
   const now = new Date();
@@ -40,8 +40,9 @@ export class PapPage extends LitElement {
 
   constructor() {
     super();
+    const currentDay = today();
     this.records = []; this.loading = true; this.saving = false; this.deletingId = null;
-    this.error = null; this.editingId = null; this.therapyDate = today(); this.healthDate = followingCalendarDay(this.therapyDate); this.healthDateAutomatic = true; this.usageHours = "";
+    this.error = null; this.editingId = null; this.therapyDate = previousCalendarDay(currentDay); this.healthDate = currentDay; this.healthDateAutomatic = true; this.usageHours = "";
     this.usageMinutes = ""; this.eventsPerHour = ""; this.maskSealScore = "";
     this.maskOnOffCount = ""; this.totalScore = ""; this.source = "manual"; this.notes = "";
   }
@@ -57,7 +58,8 @@ export class PapPage extends LitElement {
   }
 
   private resetForm() {
-    this.editingId = null; this.therapyDate = today(); this.healthDate = followingCalendarDay(this.therapyDate); this.healthDateAutomatic = true; this.usageHours = ""; this.usageMinutes = "";
+    const currentDay = today();
+    this.editingId = null; this.therapyDate = previousCalendarDay(currentDay); this.healthDate = currentDay; this.healthDateAutomatic = true; this.usageHours = ""; this.usageMinutes = "";
     this.eventsPerHour = ""; this.maskSealScore = ""; this.maskOnOffCount = "";
     this.totalScore = ""; this.source = "manual"; this.notes = "";
   }
