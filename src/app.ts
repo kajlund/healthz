@@ -18,6 +18,8 @@ import type { HealthcareEventRepository } from "./healthcare-events/repository.j
 import { createHealthcareEventsRouter } from "./healthcare-events/router.js";
 import type { HealthcareTagRepository } from "./healthcare-tags/repository.js";
 import { createHealthcareTagsRouter } from "./healthcare-tags/router.js";
+import { createTakeoutRouter } from "./takeout/router.js";
+import { TakeoutService } from "./takeout/service.js";
 
 export const createApp = (
   bodyMeasurementRepository: BodyMeasurementRepository,
@@ -28,6 +30,7 @@ export const createApp = (
   dashboardService?: DashboardService,
   healthcareEventRepository?: HealthcareEventRepository,
   healthcareTagRepository?: HealthcareTagRepository,
+  takeoutService?: TakeoutService,
 ) => {
   const app = express();
 
@@ -48,6 +51,17 @@ export const createApp = (
   if (dashboardService) app.use("/api/dashboard", createDashboardRouter(dashboardService));
   if (healthcareEventRepository) app.use("/api/healthcare-events", createHealthcareEventsRouter(healthcareEventRepository));
   if (healthcareTagRepository) app.use("/api/healthcare-tags", createHealthcareTagsRouter(healthcareTagRepository));
+  const effectiveTakeoutService =
+    takeoutService ??
+    new TakeoutService(
+      bodyMeasurementRepository,
+      bloodPressureReadingRepository,
+      sleepRecordRepository,
+      papRecordRepository,
+      healthcareEventRepository,
+      healthcareTagRepository,
+    );
+  app.use("/api/takeout", createTakeoutRouter(effectiveTakeoutService));
 
   app.use(express.static("dist/public"));
 

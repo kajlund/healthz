@@ -208,3 +208,33 @@ export const healthcareEventsApi = {
   update: (id: string, input: HealthcareEventInput) => request<HealthcareEvent>(`/api/healthcare-events/${id}`, { method: "PUT", body: JSON.stringify(input) }),
   delete: (id: string) => request<void>(`/api/healthcare-events/${id}`, { method: "DELETE" }),
 };
+
+export interface TakeoutCounts {
+  bodyMeasurements: number;
+  bloodPressureReadings: number;
+  sleepRecords: number;
+  sleepSessions: number;
+  papRecords: number;
+  healthcareEvents: number;
+  healthcareTags: number;
+}
+
+export interface TakeoutData {
+  version: 1;
+  exportedAt: string;
+  counts: TakeoutCounts;
+  bodyMeasurements: BodyMeasurement[];
+  bloodPressureReadings: BloodPressureReading[];
+  sleepRecords: SleepRecord[];
+  papRecords: PapRecord[];
+  healthcareEvents: HealthcareEvent[];
+  healthcareTags: HealthcareTag[];
+}
+
+export const takeoutApi = {
+  get: (dataset?: string, signal?: AbortSignal) =>
+    request<TakeoutData>(`/api/takeout${dataset ? `?dataset=${encodeURIComponent(dataset)}` : ""}`, { signal }),
+  downloadUrl: (dataset?: string) =>
+    `/api/takeout?download=true${dataset ? `&dataset=${encodeURIComponent(dataset)}` : ""}`,
+};
+

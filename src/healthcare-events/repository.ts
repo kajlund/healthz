@@ -20,6 +20,7 @@ export interface HealthcareEventRepository {
   update(id: string, input: HealthcareEventInput): Promise<HealthcareEvent | undefined>;
   delete(id: string): Promise<boolean>;
   dashboard(today: string, currentTime: string): Promise<HealthcareDashboardEvents>;
+  listAll?(): Promise<HealthcareEvent[]>;
 }
 
 type EventRow = typeof healthcareEvents.$inferSelect;
@@ -80,6 +81,11 @@ export const healthcareEventRepository: HealthcareEventRepository = {
     ]);
     const tags = await loadTags(rows.map(({ id }) => id));
     return { items: rows.map((row) => publicEvent(row, tags.get(row.id) ?? [])), total: Number(totalRow[0]?.value ?? 0), latestEventDate: totalRow[0]?.latestEventDate ?? null, page: query.page, pageSize: query.pageSize };
+  },
+  async listAll() {
+    const rows = await db.select().from(healthcareEvents).orderBy(...eventOrder);
+    const tags = await loadTags(rows.map(({ id }) => id));
+    return rows.map((row) => publicEvent(row, tags.get(row.id) ?? []));
   },
   async findById(id) {
     const [row] = await db.select().from(healthcareEvents).where(eq(healthcareEvents.id, id)).limit(1);

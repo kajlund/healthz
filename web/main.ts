@@ -7,10 +7,11 @@ import "./pap-page.js";
 import "./reports-page.js";
 import "./dashboard-page.js";
 import "./journal-page.js";
+import "./config-page.js";
 import "./styles.css";
 
-type Route = "dashboard" | "weight" | "blood-pressure" | "sleep" | "pap" | "report-monthly" | "report-year" | "journal";
-type Category = "dashboard" | "measurements" | "reports" | "journal";
+type Route = "dashboard" | "weight" | "blood-pressure" | "sleep" | "pap" | "report-monthly" | "report-year" | "journal" | "config";
+type Category = "dashboard" | "measurements" | "reports" | "journal" | "config";
 
 const navigation: Array<{ category: Category; label: string; items: Array<{ route: Route; label: string; hash: string }> }> = [
   { category: "dashboard", label: "Dashboard", items: [{ route: "dashboard", label: "Dashboard", hash: "/" }] },
@@ -25,8 +26,9 @@ const navigation: Array<{ category: Category; label: string; items: Array<{ rout
     { route: "report-year", label: "Year comparison", hash: "#/reports/year-comparison" },
   ] },
   { category: "journal", label: "Journal", items: [{ route: "journal", label: "Journal", hash: "#/journal" }] },
+  { category: "config", label: "Config", items: [{ route: "config", label: "Data takeout", hash: "#/config" }] },
 ];
-export const routeFromHash = (): Route => { const path = window.location.hash.split("?")[0]; if (!path) return "dashboard"; if (path.startsWith("#/measurements/sleep/")) return "sleep"; return navigation.flatMap(({ items }) => items).find(({ hash }) => hash === path)?.route ?? "weight"; };
+export const routeFromHash = (): Route => { const path = window.location.hash.split("?")[0]; if (!path) return "dashboard"; if (path.startsWith("#/measurements/sleep/")) return "sleep"; if (path === "#config" || path === "#/config") return "config"; return navigation.flatMap(({ items }) => items).find(({ hash }) => hash === path)?.route ?? "weight"; };
 
 const today = () => {
   const now = new Date();
@@ -98,7 +100,7 @@ class HealthzApp extends LitElement {
   private handleRouteChange = () => { this.route = routeFromHash(); this.mobileMenuOpen = false; };
   private handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && this.mobileMenuOpen) { this.mobileMenuOpen = false; this.querySelector<HTMLButtonElement>(".menu-toggle")?.focus(); } };
   private handleOutsidePointer = (event: PointerEvent) => { if (this.mobileMenuOpen && !this.querySelector(".navigation-shell")?.contains(event.target as Node)) this.mobileMenuOpen = false; };
-  private get category(): Category { return this.route === "dashboard" ? "dashboard" : this.route === "journal" ? "journal" : this.route.startsWith("report-") ? "reports" : "measurements"; }
+  private get category(): Category { return this.route === "dashboard" ? "dashboard" : this.route === "journal" ? "journal" : this.route === "config" ? "config" : this.route.startsWith("report-") ? "reports" : "measurements"; }
   private destination(route: Route) { return navigation.flatMap(({ items }) => items).find((item) => item.route === route)!; }
   private categoryDestination(category: Category) { if (category === this.category) return this.destination(this.route).hash; return navigation.find((item) => item.category === category)!.items[0]!.hash; }
   private renderNavigationItems(category: Category, mobile = false) {
@@ -275,8 +277,9 @@ class HealthzApp extends LitElement {
 
       ${this.category === "measurements" ? html`<nav class="secondary-nav" aria-label="Measurements">${this.renderNavigationItems("measurements")}</nav>` : nothing}
       ${this.category === "reports" ? html`<nav class="secondary-nav" aria-label="Reports">${this.renderNavigationItems("reports")}</nav>` : nothing}
+      ${this.category === "config" ? html`<nav class="secondary-nav" aria-label="Config">${this.renderNavigationItems("config")}</nav>` : nothing}
 
-      ${this.route === "dashboard" ? html`<dashboard-page></dashboard-page>` : this.route === "journal" ? html`<journal-page></journal-page>` : this.route === "weight" ? html`<main>
+      ${this.route === "dashboard" ? html`<dashboard-page></dashboard-page>` : this.route === "journal" ? html`<journal-page></journal-page>` : this.route === "config" ? html`<config-page></config-page>` : this.route === "weight" ? html`<main>
         <section class="page-heading">
           <div>
             <span class="eyebrow">Measurements</span>
