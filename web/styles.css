@@ -264,6 +264,15 @@ report-chart canvas { max-width: 100%; }
 .quick-actions a:hover { border-color: #abc4b2; color: var(--accent); }
 .dashboard-refresh { margin: -22px 0; color: var(--muted); font-size: 11px; }
 
+.measurement-filters { margin-bottom: 20px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
+.measurement-filters > summary { cursor: pointer; color: var(--accent); font-size: 13px; font-weight: 800; }
+.measurement-filters > form { margin-top: 15px; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 18px; }
+.measurement-filters .compact-form-row { gap: 12px; }
+.measurement-filters .filter-actions { display: flex; align-items: center; gap: 10px; }
+.measurement-filters .filter-actions .primary-button,
+.measurement-filters .filter-actions .cancel-button { min-height: 40px; padding: 0 15px; }
+.measurement-filters-badge { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 99px; background: var(--soft); color: var(--accent); font-size: 11px; font-weight: 700; }
+
 .journal-filters { margin-bottom: 20px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--paper); }
 .journal-filters > summary, .tag-manager > summary { cursor: pointer; color: var(--accent); font-size: 13px; font-weight: 800; }
 .journal-filters > form { margin-top: 15px; grid-template-columns: minmax(220px, 1.2fr) minmax(280px, 1fr) minmax(190px, .75fr); align-items: end; gap: 14px 18px; }

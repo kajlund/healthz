@@ -10,11 +10,13 @@ import type { RecordActions } from "./record-actions.js";
 import "./record-actions.js";
 import { parseSleepRoute, sleepEditorUrl, type SleepRoute } from "./sleep-routes.js";
 import { previousCalendarDay } from "./pap-date.js";
+import { emptyDateFilter, hasActiveFilter, parseDateFilter, updateDateFilterHash, type DateFilter } from "./measurement-filter-helpers.js";
 
 export class SleepPage extends LitElement {
   static properties = {
     records: { state: true }, loading: { state: true }, saving: { state: true }, deletingId: { state: true },
     error: { state: true }, draft: { state: true }, errors: { state: true }, route: { state: true }, notice: { state: true },
+    filter: { state: true }, draftFilter: { state: true },
   };
   declare private records: SleepRecord[];
   declare private loading: boolean;
@@ -24,6 +26,8 @@ export class SleepPage extends LitElement {
   declare private draft: SleepDraft;
   declare private errors: FieldErrors;
   declare private route: SleepRoute;
+  declare private filter: DateFilter;
+  declare private draftFilter: DateFilter;
   private loadVersion = 0;
   declare private notice: string;
   private readonly timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -31,18 +35,24 @@ export class SleepPage extends LitElement {
   constructor() {
     super(); this.records = []; this.loading = true; this.saving = false; this.deletingId = null;
     this.error = null; this.draft = newSleepDraft(); this.errors = {}; this.route = parseSleepRoute(window.location.hash); this.notice = "";
+    this.filter = parseDateFilter(); this.draftFilter = { ...this.filter };
   }
   protected createRenderRoot() { return this; }
   connectedCallback() { super.connectedCallback(); window.addEventListener("hashchange", this.handleRouteChange); void this.loadRoute(); }
   disconnectedCallback() { window.removeEventListener("hashchange", this.handleRouteChange); this.loadVersion++; super.disconnectedCallback(); }
-  private handleRouteChange = () => { this.route = parseSleepRoute(window.location.hash); void this.loadRoute(); };
+  private handleRouteChange = () => {
+    this.route = parseSleepRoute(window.location.hash);
+    this.filter = parseDateFilter();
+    this.draftFilter = { ...this.filter };
+    void this.loadRoute();
+  };
   private async loadRoute() {
     const version = ++this.loadVersion;
     this.loading = true; this.error = null; this.errors = {}; this.notice = ""; this.saving = false; this.draft = newSleepDraft();
     try {
       if (this.route.kind === "invalid") throw new Error("Invalid sleep record ID.");
       if (this.route.kind === "list") {
-        const records = await sleepRecordsApi.list();
+        const records = await sleepRecordsApi.list(this.filter);
         if (version === this.loadVersion) this.records = records;
       } else if (this.route.kind === "edit") {
         const record = await sleepRecordsApi.get(this.route.id!);
@@ -50,6 +60,26 @@ export class SleepPage extends LitElement {
       }
     } catch (error) { if (version === this.loadVersion) this.error = error instanceof Error ? error.message : "Unable to load sleep record."; }
     finally { if (version === this.loadVersion) this.loading = false; }
+  }
+  private applyFilter(event: SubmitEvent) {
+    event.preventDefault();
+    const hash = updateDateFilterHash("#/measurements/sleep", this.draftFilter);
+    if (window.location.hash === hash) {
+      this.filter = { ...this.draftFilter };
+      void this.loadRoute();
+    } else {
+      window.location.hash = hash;
+    }
+  }
+  private clearFilter() {
+    this.draftFilter = emptyDateFilter();
+    const hash = updateDateFilterHash("#/measurements/sleep", emptyDateFilter());
+    if (window.location.hash === hash) {
+      this.filter = emptyDateFilter();
+      void this.loadRoute();
+    } else {
+      window.location.hash = hash;
+    }
   }
   private returnToList() { window.location.hash = this.route.returnTo; }
   private setField(key: "sleepDate" | "sleepScore" | "source" | "notes", value: string) {
@@ -258,9 +288,33 @@ export class SleepPage extends LitElement {
       <p>${session.lightMinutes === null && session.deepMinutes === null && session.remMinutes === null ? "No stage details" : [session.lightMinutes === null ? "" : `Light: ${formatDuration(session.lightMinutes)}`, session.deepMinutes === null ? "" : `Deep: ${formatDuration(session.deepMinutes)}`, session.remMinutes === null ? "" : `REM: ${formatDuration(session.remMinutes)}`].filter(Boolean).join(" · ")}</p>
       ${session.source ? html`<p>Source: ${session.source}</p>` : nothing}</li>`;
   }
+  private renderFilters() {
+    const active = hasActiveFilter(this.filter);
+    return html`
+      <details class="measurement-filters" ?open=${active}>
+        <summary>Filter by date${active ? html`<span class="measurement-filters-badge">Active</span>` : ""}</summary>
+        <form @submit=${this.applyFilter}>
+          <div class="compact-form-row">
+            <label>From<input type="date" .value=${this.draftFilter.from} @input=${(e: Event) => this.draftFilter = { ...this.draftFilter, from: (e.target as HTMLInputElement).value }}></label>
+            <label>To<input type="date" .value=${this.draftFilter.to} @input=${(e: Event) => this.draftFilter = { ...this.draftFilter, to: (e.target as HTMLInputElement).value }}></label>
+          </div>
+          <div class="filter-actions">
+            <button class="primary-button" type="submit">Apply filter</button>
+            <button class="cancel-button" type="button" @click=${this.clearFilter}>Clear</button>
+          </div>
+        </form>
+      </details>
+    `;
+  }
   private renderList() {
     if (this.loading) return html`<div class="state" aria-live="polite">Loading sleep records…</div>`;
-    if (!this.records.length) return html`<div class="state empty"><strong>Start your sleep history</strong><p>Choose Add sleep to record your first sleep day.</p></div>`;
+    if (!this.records.length) {
+      const active = hasActiveFilter(this.filter);
+      return html`<div class="state empty">
+        <strong>${active ? "No sleep records match these dates" : "Start your sleep history"}</strong>
+        <p>${active ? "Clear or change the date filters to see other sleep records." : "Choose Add sleep to record your first sleep day."}</p>
+      </div>`;
+    }
     return html`<div class="measurement-list"><div class="list-head sleep-grid" aria-hidden="true"><span>Sleep date</span><span>Total sleep</span><span>Stages</span><span>Score & source</span><span>Actions</span></div>
       ${repeat(this.records, (record) => record.id, (record) => html`<article class="measurement-row sleep-grid">
         <div class="date-cell"><span class="mobile-label">Sleep date</span><strong>${this.formatDate(record.sleepDate)}</strong>
@@ -325,6 +379,7 @@ export class SleepPage extends LitElement {
     return html`<main class="sleep-page"><section class="page-heading"><div><span class="eyebrow">Daily records</span><h1>Sleep</h1><p>Record your main sleep and any naps for each sleep day.</p></div><span class="section-index">03</span></section>
       <section class="summary" aria-label="Sleep summary"><div><span class="eyebrow">Latest sleep</span><strong>${latest ? formatDuration(latest.totalSleepMinutes) : "—"}</strong></div><div><span class="eyebrow">Latest score</span><strong>${latest?.sleepScore ?? "—"}</strong></div><div><span class="eyebrow">Sleep records</span><strong>${this.records.length}</strong></div></section>
       <section class="list-card"><div class="card-heading"><h2>Your sleep records</h2><a class="primary-button sleep-new-link" href=${sleepEditorUrl(null, this.route.returnTo)}>Add sleep</a></div>
+        ${this.renderFilters()}
         ${this.error ? html`<div class="error-banner" role="alert">${this.error}</div>` : nothing}${this.renderList()}
       </section></main>`;
   }

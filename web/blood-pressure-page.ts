@@ -5,6 +5,7 @@ import {
   type BloodPressureReading,
   type BloodPressureReadingInput,
 } from "./api.js";
+import { emptyDateFilter, hasActiveFilter, parseDateFilter, updateDateFilterHash, type DateFilter } from "./measurement-filter-helpers.js";
 
 const toLocalInputValue = (value: Date | string) => {
   const date = new Date(value);
@@ -25,6 +26,8 @@ export class BloodPressurePage extends LitElement {
     diastolic: { state: true },
     pulse: { state: true },
     notes: { state: true },
+    filter: { state: true },
+    draftFilter: { state: true },
   };
 
   declare private readings: BloodPressureReading[];
@@ -38,6 +41,8 @@ export class BloodPressurePage extends LitElement {
   declare private diastolic: string;
   declare private pulse: string;
   declare private notes: string;
+  declare private filter: DateFilter;
+  declare private draftFilter: DateFilter;
 
   constructor() {
     super();
@@ -52,6 +57,8 @@ export class BloodPressurePage extends LitElement {
     this.diastolic = "";
     this.pulse = "";
     this.notes = "";
+    this.filter = parseDateFilter();
+    this.draftFilter = { ...this.filter };
   }
 
   protected createRenderRoot() {
@@ -60,18 +67,52 @@ export class BloodPressurePage extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    window.addEventListener("hashchange", this.handleRouteChange);
     void this.loadReadings();
   }
+
+  disconnectedCallback() {
+    window.removeEventListener("hashchange", this.handleRouteChange);
+    super.disconnectedCallback();
+  }
+
+  private handleRouteChange = () => {
+    this.filter = parseDateFilter();
+    this.draftFilter = { ...this.filter };
+    void this.loadReadings();
+  };
 
   private async loadReadings() {
     this.loading = true;
     this.error = null;
     try {
-      this.readings = await bloodPressureReadingsApi.list();
+      this.readings = await bloodPressureReadingsApi.list(this.filter);
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Unable to load readings.";
     } finally {
       this.loading = false;
+    }
+  }
+
+  private applyFilter(event: SubmitEvent) {
+    event.preventDefault();
+    const hash = updateDateFilterHash("#/measurements/blood-pressure", this.draftFilter);
+    if (window.location.hash === hash) {
+      this.filter = { ...this.draftFilter };
+      void this.loadReadings();
+    } else {
+      window.location.hash = hash;
+    }
+  }
+
+  private clearFilter() {
+    this.draftFilter = emptyDateFilter();
+    const hash = updateDateFilterHash("#/measurements/blood-pressure", emptyDateFilter());
+    if (window.location.hash === hash) {
+      this.filter = emptyDateFilter();
+      void this.loadReadings();
+    } else {
+      window.location.hash = hash;
     }
   }
 
@@ -171,16 +212,36 @@ export class BloodPressurePage extends LitElement {
     `;
   }
 
+  private renderFilters() {
+    const active = hasActiveFilter(this.filter);
+    return html`
+      <details class="measurement-filters" ?open=${active}>
+        <summary>Filter by date${active ? html`<span class="measurement-filters-badge">Active</span>` : ""}</summary>
+        <form @submit=${this.applyFilter}>
+          <div class="compact-form-row">
+            <label>From<input type="date" .value=${this.draftFilter.from} @input=${(e: Event) => this.draftFilter = { ...this.draftFilter, from: (e.target as HTMLInputElement).value }}></label>
+            <label>To<input type="date" .value=${this.draftFilter.to} @input=${(e: Event) => this.draftFilter = { ...this.draftFilter, to: (e.target as HTMLInputElement).value }}></label>
+          </div>
+          <div class="filter-actions">
+            <button class="primary-button" type="submit">Apply filter</button>
+            <button class="cancel-button" type="button" @click=${this.clearFilter}>Clear</button>
+          </div>
+        </form>
+      </details>
+    `;
+  }
+
   private renderList() {
     if (this.loading) {
       return html`<div class="state" aria-live="polite"><span class="spinner"></span>Loading readings…</div>`;
     }
     if (this.readings.length === 0) {
+      const active = hasActiveFilter(this.filter);
       return html`
         <div class="state empty">
           <span class="empty-mark">02</span>
-          <strong>Start your blood-pressure history</strong>
-          <p>Add your first reading using the form.</p>
+          <strong>${active ? "No readings match these dates" : "Start your blood pressure history"}</strong>
+          <p>${active ? "Clear or change the date filters to see other readings." : "Add your first reading using the form."}</p>
         </div>
       `;
     }
@@ -244,6 +305,7 @@ export class BloodPressurePage extends LitElement {
               <div><span class="eyebrow">History</span><h2>Your readings</h2></div>
               <button class="refresh-button" type="button" @click=${this.loadReadings} ?disabled=${this.loading}>Refresh</button>
             </div>
+            ${this.renderFilters()}
             ${this.renderList()}
           </section>
 

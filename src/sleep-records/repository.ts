@@ -1,7 +1,8 @@
-﻿import { asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "../db/index.js";
 import { sleepRecords, sleepSessions } from "../db/schema.js";
 import { AppError, SleepRecordConflictError } from "../errors.js";
+import type { DateRangeQuery } from "../common/filters.js";
 import { createSleepRecordSchema, updateSleepRecordSchema, type SleepRecordInput } from "./schemas.js";
 import { stageCoverage, valuesFromSessionInput, valuesFromSleepInput, type StageCoverage } from "./service.js";
 
@@ -10,7 +11,7 @@ export type SleepSession = typeof sleepSessions.$inferSelect;
 export type SleepRecord = SleepRow & { sessions: SleepSession[]; stageCoverage: StageCoverage };
 export interface SleepRecordRepository {
   create(input: SleepRecordInput): Promise<SleepRecord>;
-  list(): Promise<SleepRecord[]>;
+  list(query?: DateRangeQuery): Promise<SleepRecord[]>;
   findById(id: string): Promise<SleepRecord | undefined>;
   update(id: string, input: SleepRecordInput): Promise<SleepRecord | undefined>;
   delete(id: string): Promise<boolean>;
@@ -57,10 +58,14 @@ export const createSleepRecordRepository = (database: typeof db): SleepRecordRep
       throw error;
     }
   },
-  async list() {
+  async list(query?: DateRangeQuery) {
     // One snapshot prevents a mode change between parent and child reads.
     return database.transaction(async (tx) => {
-      const rows = await tx.select().from(sleepRecords).orderBy(desc(sleepRecords.sleepDate));
+      const conditions = [];
+      if (query?.from) conditions.push(gte(sleepRecords.sleepDate, query.from));
+      if (query?.to) conditions.push(lte(sleepRecords.sleepDate, query.to));
+      const where = conditions.length ? and(...conditions) : undefined;
+      const rows = await tx.select().from(sleepRecords).where(where).orderBy(desc(sleepRecords.sleepDate));
       const sessions = await loadSessions(tx, rows.map(({ id }) => id));
       return rows.map((row) => publicRecord(row, sessions.get(row.id) ?? []));
     }, { isolationLevel: "repeatable read", accessMode: "read only" });

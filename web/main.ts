@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from "lit";
 
 import { bodyMeasurementsApi, type BodyMeasurement, type BodyMeasurementInput } from "./api.js";
+import { emptyDateFilter, hasActiveFilter, parseDateFilter, updateDateFilterHash, type DateFilter } from "./measurement-filter-helpers.js";
 import "./blood-pressure-page.js";
 import "./sleep-page.js";
 import "./pap-page.js";
@@ -49,6 +50,8 @@ class HealthzApp extends LitElement {
     notes: { state: true },
     route: { state: true },
     mobileMenuOpen: { state: true },
+    filter: { state: true },
+    draftFilter: { state: true },
   };
 
   declare private measurements: BodyMeasurement[];
@@ -62,6 +65,8 @@ class HealthzApp extends LitElement {
   declare private notes: string;
   declare private route: Route;
   declare private mobileMenuOpen: boolean;
+  declare private filter: DateFilter;
+  declare private draftFilter: DateFilter;
 
   constructor() {
     super();
@@ -76,6 +81,8 @@ class HealthzApp extends LitElement {
     this.notes = "";
     this.route = routeFromHash();
     this.mobileMenuOpen = false;
+    this.filter = parseDateFilter();
+    this.draftFilter = { ...this.filter };
   }
 
   protected createRenderRoot() {
@@ -97,7 +104,13 @@ class HealthzApp extends LitElement {
     super.disconnectedCallback();
   }
 
-  private handleRouteChange = () => { this.route = routeFromHash(); this.mobileMenuOpen = false; };
+  private handleRouteChange = () => {
+    this.route = routeFromHash();
+    this.mobileMenuOpen = false;
+    this.filter = parseDateFilter();
+    this.draftFilter = { ...this.filter };
+    if (this.route === "weight") void this.loadMeasurements();
+  };
   private handleKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape" && this.mobileMenuOpen) { this.mobileMenuOpen = false; this.querySelector<HTMLButtonElement>(".menu-toggle")?.focus(); } };
   private handleOutsidePointer = (event: PointerEvent) => { if (this.mobileMenuOpen && !this.querySelector(".navigation-shell")?.contains(event.target as Node)) this.mobileMenuOpen = false; };
   private get category(): Category { return this.route === "dashboard" ? "dashboard" : this.route === "journal" ? "journal" : this.route === "config" ? "config" : this.route.startsWith("report-") ? "reports" : "measurements"; }
@@ -111,11 +124,33 @@ class HealthzApp extends LitElement {
     this.loading = true;
     this.error = null;
     try {
-      this.measurements = await bodyMeasurementsApi.list();
+      this.measurements = await bodyMeasurementsApi.list(this.filter);
     } catch (error) {
       this.error = error instanceof Error ? error.message : "Unable to load measurements.";
     } finally {
       this.loading = false;
+    }
+  }
+
+  private applyFilter(event: SubmitEvent) {
+    event.preventDefault();
+    const hash = updateDateFilterHash("#/measurements/weight", this.draftFilter);
+    if (window.location.hash === hash) {
+      this.filter = { ...this.draftFilter };
+      void this.loadMeasurements();
+    } else {
+      window.location.hash = hash;
+    }
+  }
+
+  private clearFilter() {
+    this.draftFilter = emptyDateFilter();
+    const hash = updateDateFilterHash("#/measurements/weight", emptyDateFilter());
+    if (window.location.hash === hash) {
+      this.filter = emptyDateFilter();
+      void this.loadMeasurements();
+    } else {
+      window.location.hash = hash;
     }
   }
 
@@ -213,16 +248,36 @@ class HealthzApp extends LitElement {
     `;
   }
 
+  private renderFilters() {
+    const active = hasActiveFilter(this.filter);
+    return html`
+      <details class="measurement-filters" ?open=${active}>
+        <summary>Filter by date${active ? html`<span class="measurement-filters-badge">Active</span>` : ""}</summary>
+        <form @submit=${this.applyFilter}>
+          <div class="compact-form-row">
+            <label>From<input type="date" .value=${this.draftFilter.from} @input=${(e: Event) => this.draftFilter = { ...this.draftFilter, from: (e.target as HTMLInputElement).value }}></label>
+            <label>To<input type="date" .value=${this.draftFilter.to} @input=${(e: Event) => this.draftFilter = { ...this.draftFilter, to: (e.target as HTMLInputElement).value }}></label>
+          </div>
+          <div class="filter-actions">
+            <button class="primary-button" type="submit">Apply filter</button>
+            <button class="cancel-button" type="button" @click=${this.clearFilter}>Clear</button>
+          </div>
+        </form>
+      </details>
+    `;
+  }
+
   private renderList() {
     if (this.loading) {
       return html`<div class="state" aria-live="polite"><span class="spinner"></span>Loading measurements…</div>`;
     }
     if (this.measurements.length === 0) {
+      const active = hasActiveFilter(this.filter);
       return html`
         <div class="state empty">
           <span class="empty-mark">01</span>
-          <strong>Start your weight history</strong>
-          <p>Add your first measurement using the form.</p>
+          <strong>${active ? "No measurements match these dates" : "Start your weight history"}</strong>
+          <p>${active ? "Clear or change the date filters to see other measurements." : "Add your first measurement using the form."}</p>
         </div>
       `;
     }
@@ -301,6 +356,7 @@ class HealthzApp extends LitElement {
               <div><span class="eyebrow">History</span><h2>Your measurements</h2></div>
               <button class="refresh-button" type="button" @click=${this.loadMeasurements} ?disabled=${this.loading}>Refresh</button>
             </div>
+            ${this.renderFilters()}
             ${this.renderList()}
           </section>
 

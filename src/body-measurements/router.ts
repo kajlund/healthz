@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { AppError } from "../errors.js";
 import type { BodyMeasurementRepository } from "./repository.js";
+import { dateRangeQuerySchema } from "../common/filters.js";
 import {
   bodyMeasurementIdSchema,
   createBodyMeasurementSchema,
@@ -16,8 +17,9 @@ export const createBodyMeasurementsRouter = (repository: BodyMeasurementReposito
     response.status(201).json(await repository.create(input));
   });
 
-  router.get("/", async (_request, response) => {
-    response.json(await repository.list());
+  router.get("/", async (request, response) => {
+    const query = dateRangeQuerySchema.parse(request.query);
+    response.json(await repository.list(query));
   });
 
   router.get("/:id", async (request, response) => {

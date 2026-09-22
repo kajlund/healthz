@@ -1,15 +1,16 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from "drizzle-orm";
 
 import { db } from "../db/index.js";
 import { bodyMeasurements } from "../db/schema.js";
 import { BodyMeasurementConflictError } from "../errors.js";
+import type { DateRangeQuery } from "../common/filters.js";
 import type { BodyMeasurementInput } from "./schemas.js";
 
 export type BodyMeasurement = typeof bodyMeasurements.$inferSelect;
 
 export interface BodyMeasurementRepository {
   create(input: BodyMeasurementInput): Promise<BodyMeasurement>;
-  list(): Promise<BodyMeasurement[]>;
+  list(query?: DateRangeQuery): Promise<BodyMeasurement[]>;
   findById(id: string): Promise<BodyMeasurement | undefined>;
   update(id: string, input: BodyMeasurementInput): Promise<BodyMeasurement | undefined>;
   delete(id: string): Promise<boolean>;
@@ -32,8 +33,12 @@ export const bodyMeasurementRepository: BodyMeasurementRepository = {
     }
   },
 
-  async list() {
-    return db.select().from(bodyMeasurements).orderBy(desc(bodyMeasurements.measuredOn));
+  async list(query?: DateRangeQuery) {
+    const conditions = [];
+    if (query?.from) conditions.push(gte(bodyMeasurements.measuredOn, query.from));
+    if (query?.to) conditions.push(lte(bodyMeasurements.measuredOn, query.to));
+    const where = conditions.length ? and(...conditions) : undefined;
+    return db.select().from(bodyMeasurements).where(where).orderBy(desc(bodyMeasurements.measuredOn));
   },
 
   async findById(id) {

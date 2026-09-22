@@ -34,8 +34,21 @@ const request = async <T>(path: string, options?: RequestInit): Promise<T> => {
   return response.json() as Promise<T>;
 };
 
+export interface DateRangeFilter {
+  from?: string;
+  to?: string;
+}
+
+const dateQuery = (filter?: DateRangeFilter) => {
+  const params = new URLSearchParams();
+  if (filter?.from) params.set("from", filter.from);
+  if (filter?.to) params.set("to", filter.to);
+  const str = params.toString();
+  return str ? `?${str}` : "";
+};
+
 export const bodyMeasurementsApi = {
-  list: () => request<BodyMeasurement[]>("/api/body-measurements"),
+  list: (filter?: DateRangeFilter) => request<BodyMeasurement[]>(`/api/body-measurements${dateQuery(filter)}`),
   create: (input: BodyMeasurementInput) =>
     request<BodyMeasurement>("/api/body-measurements", {
       method: "POST",
@@ -70,7 +83,7 @@ export interface BloodPressureReadingInput {
 }
 
 export const bloodPressureReadingsApi = {
-  list: () => request<BloodPressureReading[]>("/api/blood-pressure-readings"),
+  list: (filter?: DateRangeFilter) => request<BloodPressureReading[]>(`/api/blood-pressure-readings${dateQuery(filter)}`),
   create: (input: BloodPressureReadingInput) =>
     request<BloodPressureReading>("/api/blood-pressure-readings", {
       method: "POST",
@@ -127,7 +140,7 @@ export interface SleepSession {
 
 export const sleepRecordsApi = {
   get: (id: string) => request<SleepRecord>(`/api/sleep-records/${encodeURIComponent(id)}`),
-  list: () => request<SleepRecord[]>("/api/sleep-records"),
+  list: (filter?: DateRangeFilter) => request<SleepRecord[]>(`/api/sleep-records${dateQuery(filter)}`),
   create: (input: SleepRecordInput) => request<SleepRecord>("/api/sleep-records", { method: "POST", body: JSON.stringify(input) }),
   update: (id: string, input: SleepRecordInput) => request<SleepRecord>(`/api/sleep-records/${id}`, { method: "PUT", body: JSON.stringify(input) }),
   delete: (id: string) => request<void>(`/api/sleep-records/${id}`, { method: "DELETE" }),
@@ -151,7 +164,7 @@ export interface PapRecord {
 export type PapRecordInput = Omit<PapRecord, "id" | "createdAt" | "updatedAt" | "healthDate"> & { healthDate: string };
 
 export const papRecordsApi = {
-  list: () => request<PapRecord[]>("/api/pap-records"),
+  list: (filter?: DateRangeFilter) => request<PapRecord[]>(`/api/pap-records${dateQuery(filter)}`),
   create: (input: PapRecordInput) => request<PapRecord>("/api/pap-records", { method: "POST", body: JSON.stringify(input) }),
   update: (id: string, input: PapRecordInput) => request<PapRecord>(`/api/pap-records/${id}`, { method: "PUT", body: JSON.stringify(input) }),
   delete: (id: string) => request<void>(`/api/pap-records/${id}`, { method: "DELETE" }),

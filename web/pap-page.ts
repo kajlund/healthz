@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from "lit";
 
 import { papRecordsApi, type PapRecord, type PapRecordInput } from "./api.js";
 import { followingCalendarDay, previousCalendarDay } from "./pap-date.js";
+import { emptyDateFilter, hasActiveFilter, parseDateFilter, updateDateFilterHash, type DateFilter } from "./measurement-filter-helpers.js";
 
 const today = () => {
   const now = new Date();
@@ -18,6 +19,7 @@ export class PapPage extends LitElement {
     therapyDate: { state: true }, healthDate: { state: true }, healthDateAutomatic: { state: true }, usageHours: { state: true }, usageMinutes: { state: true },
     eventsPerHour: { state: true }, maskSealScore: { state: true }, maskOnOffCount: { state: true },
     totalScore: { state: true }, source: { state: true }, notes: { state: true },
+    filter: { state: true }, draftFilter: { state: true },
   };
 
   declare private records: PapRecord[];
@@ -37,6 +39,8 @@ export class PapPage extends LitElement {
   declare private totalScore: string;
   declare private source: string;
   declare private notes: string;
+  declare private filter: DateFilter;
+  declare private draftFilter: DateFilter;
 
   constructor() {
     super();
@@ -45,16 +49,54 @@ export class PapPage extends LitElement {
     this.error = null; this.editingId = null; this.therapyDate = previousCalendarDay(currentDay); this.healthDate = currentDay; this.healthDateAutomatic = true; this.usageHours = "";
     this.usageMinutes = ""; this.eventsPerHour = ""; this.maskSealScore = "";
     this.maskOnOffCount = ""; this.totalScore = ""; this.source = "manual"; this.notes = "";
+    this.filter = parseDateFilter(); this.draftFilter = { ...this.filter };
   }
 
   protected createRenderRoot() { return this; }
-  connectedCallback() { super.connectedCallback(); void this.loadRecords(); }
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener("hashchange", this.handleRouteChange);
+    void this.loadRecords();
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener("hashchange", this.handleRouteChange);
+    super.disconnectedCallback();
+  }
+
+  private handleRouteChange = () => {
+    this.filter = parseDateFilter();
+    this.draftFilter = { ...this.filter };
+    void this.loadRecords();
+  };
 
   private async loadRecords() {
     this.loading = true; this.error = null;
-    try { this.records = await papRecordsApi.list(); }
+    try { this.records = await papRecordsApi.list(this.filter); }
     catch (error) { this.error = error instanceof Error ? error.message : "Unable to load PAP records."; }
     finally { this.loading = false; }
+  }
+
+  private applyFilter(event: SubmitEvent) {
+    event.preventDefault();
+    const hash = updateDateFilterHash("#/measurements/pap", this.draftFilter);
+    if (window.location.hash === hash) {
+      this.filter = { ...this.draftFilter };
+      void this.loadRecords();
+    } else {
+      window.location.hash = hash;
+    }
+  }
+
+  private clearFilter() {
+    this.draftFilter = emptyDateFilter();
+    const hash = updateDateFilterHash("#/measurements/pap", emptyDateFilter());
+    if (window.location.hash === hash) {
+      this.filter = emptyDateFilter();
+      void this.loadRecords();
+    } else {
+      window.location.hash = hash;
+    }
   }
 
   private resetForm() {
@@ -118,9 +160,31 @@ export class PapPage extends LitElement {
     return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`));
   }
 
+  private renderFilters() {
+    const active = hasActiveFilter(this.filter);
+    return html`
+      <details class="measurement-filters" ?open=${active}>
+        <summary>Filter by date${active ? html`<span class="measurement-filters-badge">Active</span>` : ""}</summary>
+        <form @submit=${this.applyFilter}>
+          <div class="compact-form-row">
+            <label>From<input type="date" .value=${this.draftFilter.from} @input=${(e: Event) => this.draftFilter = { ...this.draftFilter, from: (e.target as HTMLInputElement).value }}></label>
+            <label>To<input type="date" .value=${this.draftFilter.to} @input=${(e: Event) => this.draftFilter = { ...this.draftFilter, to: (e.target as HTMLInputElement).value }}></label>
+          </div>
+          <div class="filter-actions">
+            <button class="primary-button" type="submit">Apply filter</button>
+            <button class="cancel-button" type="button" @click=${this.clearFilter}>Clear</button>
+          </div>
+        </form>
+      </details>
+    `;
+  }
+
   private renderList() {
     if (this.loading) return html`<div class="state" aria-live="polite"><span class="spinner"></span>Loading PAP records…</div>`;
-    if (!this.records.length) return html`<div class="state empty"><span class="empty-mark">04</span><strong>Start your PAP history</strong><p>Add the values reported by your machine or service.</p></div>`;
+    if (!this.records.length) {
+      const active = hasActiveFilter(this.filter);
+      return html`<div class="state empty"><span class="empty-mark">04</span><strong>${active ? "No PAP records match these dates" : "Start your PAP history"}</strong><p>${active ? "Clear or change the date filters to see other records." : "Add the values reported by your machine or service."}</p></div>`;
+    }
     return html`<div class="measurement-list"><div class="list-head pap-grid" aria-hidden="true"><span>PAP & Health dates</span><span>Usage & AHI</span><span>Scores & count</span><span>Source</span><span>Actions</span></div>${this.records.map((item) => html`
       <article class="measurement-row pap-grid">
         <div class="date-cell pap-date-cell"><span class="mobile-label">Dates</span><div class="pap-date-pair"><div><small>PAP</small><strong>${this.formatDate(item.therapyDate)}</strong></div><div><small>Health</small>${item.healthDate ? html`<strong>${this.formatDate(item.healthDate)}</strong>` : html`<span class="muted">Not set</span>`}</div></div></div>
@@ -136,7 +200,7 @@ export class PapPage extends LitElement {
     return html`<main><section class="page-heading"><div><span class="eyebrow">Daily records</span><h1>PAP</h1><p>PAP date is shown by the PAP service. Health date aligns the session with Sleep.</p></div><span class="section-index">04</span></section>
       <section class="summary" aria-label="PAP summary"><div><span class="eyebrow">Latest usage</span><strong>${latest?.usageMinutes === null || !latest ? "—" : formatDuration(latest.usageMinutes)}</strong><span>${latest ? this.formatDate(latest.therapyDate) : "No PAP records yet"}</span></div><div><span class="eyebrow">Latest score</span><strong>${latest?.totalScore ?? "—"}</strong><span>${latest?.totalScore == null ? "No score recorded" : "Points out of 100"}</span></div><div><span class="eyebrow">Entries</span><strong>${this.records.length}</strong><span>Total PAP records</span></div></section>
       ${this.error ? html`<div class="error-banner" role="alert"><strong>Something needs attention.</strong><span>${this.error}</span><button type="button" @click=${() => (this.error = null)} aria-label="Dismiss error">×</button></div>` : nothing}
-      <div class="workspace pap-workspace"><section class="list-card"><div class="card-heading"><div><span class="eyebrow">History</span><h2>Your PAP records</h2></div><button class="refresh-button" type="button" @click=${this.loadRecords} ?disabled=${this.loading}>Refresh</button></div>${this.renderList()}</section>
+      <div class="workspace pap-workspace"><section class="list-card"><div class="card-heading"><div><span class="eyebrow">History</span><h2>Your PAP records</h2></div><button class="refresh-button" type="button" @click=${this.loadRecords} ?disabled=${this.loading}>Refresh</button></div>${this.renderFilters()}${this.renderList()}</section>
       <aside class="entry-card daily-entry-card"><span class="eyebrow">${this.editingId ? "Edit entry" : "New entry"}</span><h2>${this.editingId ? "Update PAP record" : "Add PAP record"}</h2><form class="compact-entry-form" @submit=${this.submit}>
         <p class="form-help">PAP date is the date shown by the PAP service. Health date is the wake-up date Healthz uses to align this session with Sleep.</p>
         <label>PAP date <span class="required-marker" aria-hidden="true">*</span><input type="date" required .value=${this.therapyDate} @input=${(e: InputEvent) => this.changeTherapyDate((e.target as HTMLInputElement).value)} /></label>

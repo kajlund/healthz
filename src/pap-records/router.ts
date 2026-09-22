@@ -2,6 +2,7 @@ import { Router } from "express";
 
 import { AppError } from "../errors.js";
 import type { PapRecordRepository } from "./repository.js";
+import { dateRangeQuerySchema } from "../common/filters.js";
 import { createPapRecordSchema, papRecordIdSchema, updatePapRecordSchema } from "./schemas.js";
 
 export const createPapRecordsRouter = (repository: PapRecordRepository) => {
@@ -9,7 +10,10 @@ export const createPapRecordsRouter = (repository: PapRecordRepository) => {
   router.post("/", async (request, response) => {
     response.status(201).json(await repository.create(createPapRecordSchema.parse(request.body)));
   });
-  router.get("/", async (_request, response) => response.json(await repository.list()));
+  router.get("/", async (request, response) => {
+    const query = dateRangeQuerySchema.parse(request.query);
+    response.json(await repository.list(query));
+  });
   router.get("/:id", async (request, response) => {
     const record = await repository.findById(papRecordIdSchema.parse(request.params.id));
     if (!record) throw new AppError(404, "NOT_FOUND", "PAP record not found");

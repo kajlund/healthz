@@ -90,6 +90,22 @@ describe("body measurement routes", () => {
     ]);
   });
 
+  it("filters measurements by from and to dates", async () => {
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository))
+      .get("/api/body-measurements?from=2026-08-01&to=2026-08-31");
+
+    expect(response.status).toBe(200);
+    expect(repository.list).toHaveBeenCalledWith({ from: "2026-08-01", to: "2026-08-31" });
+  });
+
+  it("rejects invalid date range filter where from is after to", async () => {
+    const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository))
+      .get("/api/body-measurements?from=2026-08-31&to=2026-08-01");
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("gets a body measurement by id", async () => {
     const response = await request(createApp(repository, bloodPressureRepository, sleepRepository, papRepository)).get(`/api/body-measurements/${firstId}`);
 
