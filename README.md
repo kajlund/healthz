@@ -318,7 +318,9 @@ Daily PAP reports use `healthDate`. Existing rows without it temporarily fall ba
 
 ## Reports
 
-Reports are calculated on request and never modify or persist source records. The reporting service executes four bounded source queries for a requested range—Weight, Blood pressure, daily Sleep, and daily PAP—then performs reusable calculations in memory. No query is issued per month or metric.
+See [Monthly Sleep averages](docs/monthly-sleep-averages.md) for the Sleep-only historical entry UI, API, reporting precedence, export investigation, and verification.
+
+Reports are calculated on request and never modify or persist source records. The reporting service executes five bounded source queries for a requested range—Weight, Blood pressure, daily Sleep, daily PAP, and entered monthly Sleep averages—then performs reusable calculations in memory. No query is issued per month or metric.
 
 Monthly report:
 
@@ -342,15 +344,15 @@ curl "http://localhost:3000/api/reports/year-over-year?years=2024,2025,2026"
 
 Weight reports include average, minimum, maximum, first, last, and measurement count. Blood-pressure readings are averaged within each UTC calendar day first, then those daily averages receive equal weight in the monthly result. Pulse uses only days containing at least one pulse value.
 
-Sleep and PAP statistics use only detailed records. Known values are averaged independently per metric with source `daily`; missing values remain `null` with source `none`. `sampleCount` is the number of contributing daily values.
+PAP statistics use only detailed records. Sleep uses detailed records unless an explicit monthly Sleep average selects the four duration averages described below. Known values are averaged independently per metric with source `daily`; missing values remain `null` with source `none`. `sampleCount` is the number of contributing daily values.
 
-Sleep reports additionally expose `averageAwakeCount: { value, source, sampleCount }`. This is **Average times awake**, the number of reported awakenings, separate from `averageAwakeMinutes` (**Total time awake**, a duration). The count average uses only known daily `awakeCount` values, includes explicit zero, and rounds to two decimal places. Its source is `daily`, or `none` with null value and sample count when no daily counts are known. Counts display as times; Awake duration displays as hours and minutes.
+Sleep reports additionally expose `averageAwakeCount: { value, source, sampleCount }`. This is **Average times awake**, the number of reported awakenings, separate from `averageAwakeMinutes` (**Total time awake**, a duration). The count average uses only known daily `awakeCount` values, includes explicit zero, and rounds to two decimal places. Its source is `daily`, or `none` with null value and sample count when no daily counts are known. Counts display as times; Total time awake uses its existing minutes-only display.
 
 Each Sleep record contributes at most one daily observation per metric. A session day containing main sleep and a duration-only nap contributes its already-calculated parent total once. Reports never sum session measurements again. Each optional parent measurement is present only if all sessions supplied it; otherwise it remains null and is excluded from that metric's daily sample. Existing directly entered nightly records retain their original values, including individually known stages.
 
 The monthly Sleep object also includes `stageCoverage: { completeDays, partialDays, noStageDays }`. These counts describe daily records only. Nightly record coverage is derived from its Light/Deep/REM fields. Session coverage is complete when all sessions have all three stages, partial when some stages exist but coverage is incomplete, and absent when none exist. Awake duration/count is not required for stage completeness. A staged main sleep plus a stage-less nap therefore counts as a partial day even if all three parent stage totals are null. Coverage is read without expanding sessions into separate daily observations. All-zero recorded stages are known values.
 
-Monthly tables show each metric's source and sample count alongside daily coverage counts. Stage averages may use different samples and must not be interpreted as one complete-day stage breakdown. Monthly Sleep charts and year comparison include **Average times awake** in their existing metric selectors; charts keep one selected Sleep metric, preserve missing values as gaps, and expose stage coverage in tooltips. A monthly coverage disclosure remains available even for months with no plotted values. Source labels are **Daily** and **No data**.
+Monthly tables show each metric's source and sample count alongside daily coverage counts. Stage averages may use different samples and must not be interpreted as one complete-day stage breakdown. Monthly Sleep charts and year comparison include **Average times awake** in their existing metric selectors; charts keep one selected Sleep metric, preserve missing values as gaps, and expose stage coverage in tooltips. A monthly coverage disclosure remains available even for months with no plotted values. Source labels are **Daily**, **Monthly average**, and **No data**.
 
 The Sleep model is source-neutral: detailed nightly records, staged main sleep, duration-only naps and future Garmin-derived measurements use the same fields. This feature adds no vendor integration, import, re-import or historical reconciliation. Reporting is read-only.
 

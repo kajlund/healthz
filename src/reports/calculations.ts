@@ -34,6 +34,7 @@ export const calculateMonthlyReports = (months: string[], data: ReportData): Mon
   const sleepDaily = data.sleepRecords.filter((item) => byMonth(item.sleepDate) === month);
   const coverage = sleepDaily.map((item) => item.stageCoverage ?? stageCoverage([item]));
   const sleep: SleepReport = {
+    dailyRecordCount: sleepDaily.length,
     averageAwakeCount: dailyMetric(sleepDaily.flatMap((item) => item.awakeCount == null ? [] : [item.awakeCount]), 2),
     stageCoverage: { completeDays: coverage.filter((value) => value === "complete").length, partialDays: coverage.filter((value) => value === "partial").length, noStageDays: coverage.filter((value) => value === "none").length },
     averageTotalSleepMinutes: knownMetric(sleepDaily.map((item) => item.totalSleepMinutes), 0),
@@ -44,6 +45,12 @@ export const calculateMonthlyReports = (months: string[], data: ReportData): Mon
     averageSleepScore: knownMetric(sleepDaily.map((item) => item.sleepScore), 2),
   };
   const papDaily = data.papRecords.filter((item) => byMonth(effectivePapHealthDate(item)) === month);
+  const entered = data.sleepMonthlyAverages?.find((item) => `${item.year}-${String(item.month).padStart(2, "0")}` === month);
+  for (const key of ["averageTotalSleepMinutes", "averageDeepMinutes", "averageLightMinutes", "averageRemMinutes"] as const) {
+    sleep[key] = entered
+      ? { value: entered[key], source: "monthly-average", sampleCount: null, dailyRecordCount: sleepDaily.length }
+      : sleep[key];
+  }
   const pap: PapReport = {
     averageUsageMinutes: knownMetric(papDaily.map((item) => item.usageMinutes), 0),
     averageEventsPerHour: knownMetric(papDaily.map((item) => item.eventsPerHour), 2),

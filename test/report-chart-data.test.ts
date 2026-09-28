@@ -8,7 +8,7 @@ const month = (name: string, weight: number | null, source: ReportMetric["source
   month: name,
   weight: weight === null ? null : { average: metric(weight, source), minimum: metric(weight, source), maximum: metric(weight, source), first: metric(weight, source), last: metric(weight, source), measurementCount: 1 },
   bloodPressure: null,
-  sleep: { averageAwakeCount: metric(null), stageCoverage: { completeDays: 0, partialDays: 0, noStageDays: 0 }, averageTotalSleepMinutes: metric(null), averageAwakeMinutes: metric(null), averageLightMinutes: metric(null), averageDeepMinutes: metric(null), averageRemMinutes: metric(null), averageSleepScore: metric(null) },
+  sleep: { dailyRecordCount: 0, averageAwakeCount: metric(null), stageCoverage: { completeDays: 0, partialDays: 0, noStageDays: 0 }, averageTotalSleepMinutes: metric(null), averageAwakeMinutes: metric(null), averageLightMinutes: metric(null), averageDeepMinutes: metric(null), averageRemMinutes: metric(null), averageSleepScore: metric(null) },
   pap: { averageUsageMinutes: metric(null), averageEventsPerHour: metric(null), averageMaskSealScore: metric(null), averageMaskOnOffCount: metric(null), averageTotalScore: metric(null) },
 });
 

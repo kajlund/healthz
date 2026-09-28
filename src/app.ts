@@ -20,6 +20,8 @@ import type { HealthcareTagRepository } from "./healthcare-tags/repository.js";
 import { createHealthcareTagsRouter } from "./healthcare-tags/router.js";
 import { createTakeoutRouter } from "./takeout/router.js";
 import { TakeoutService } from "./takeout/service.js";
+import type { MonthlySleepRepository } from "./sleep-monthly-averages/repository.js";
+import { createMonthlySleepRouter } from "./sleep-monthly-averages/router.js";
 
 export const createApp = (
   bodyMeasurementRepository: BodyMeasurementRepository,
@@ -31,6 +33,7 @@ export const createApp = (
   healthcareEventRepository?: HealthcareEventRepository,
   healthcareTagRepository?: HealthcareTagRepository,
   takeoutService?: TakeoutService,
+  monthlySleepRepository?: MonthlySleepRepository,
 ) => {
   const app = express();
 
@@ -46,6 +49,7 @@ export const createApp = (
     createBloodPressureReadingsRouter(bloodPressureReadingRepository),
   );
   app.use("/api/sleep-records", createSleepRecordsRouter(sleepRecordRepository));
+  if (monthlySleepRepository) app.use("/api/sleep-monthly-averages", createMonthlySleepRouter(monthlySleepRepository));
   app.use("/api/pap-records", createPapRecordsRouter(papRecordRepository));
   if (reportingService) app.use("/api/reports", createReportsRouter(reportingService));
   if (dashboardService) app.use("/api/dashboard", createDashboardRouter(dashboardService));

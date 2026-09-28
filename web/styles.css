@@ -952,3 +952,12 @@ record-actions { display: inline-block; }
   }
 }
 
+.monthly-sleep-page .workspace > * { min-width: 0; }
+.monthly-sleep-page .entry-card { position: static; }
+.monthly-sleep-page input, .monthly-sleep-page textarea { min-width: 0; max-width: 100%; }
+.monthly-sleep-page .duration-field { min-width: 0; }
+.monthly-sleep-record { padding: 1rem; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.monthly-sleep-record dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1rem; }
+.monthly-sleep-record dd { margin: .25rem 0 0; }
+.monthly-sleep-page > p { max-width: 75ch; }
+@media (max-width: 700px) { .monthly-sleep-page .workspace { grid-template-columns: minmax(0, 1fr); } }

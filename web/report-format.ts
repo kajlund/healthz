@@ -15,8 +15,8 @@ export const formatReportValue = (value: number | null, format: ReportFormat) =>
   if (format === "score") return value.toFixed(2);
   return String(Number(value.toFixed(2)));
 };
-export const sourceLabel = (source: ReportSource) => source === "daily" ? "Daily" : "No data";
-export const metricDetail = (metric: ReportMetric) => `${sourceLabel(metric.source)}${metric.sampleCount === null ? "" : ` · n=${metric.sampleCount}`}`;
+export const sourceLabel = (source: ReportSource) => source === "monthly-average" ? "Monthly average" : source === "daily" ? "Daily" : "No data";
+export const metricDetail = (metric: ReportMetric) => metric.source === "monthly-average" ? `Monthly average · ${metric.dailyRecordCount ?? 0} daily records present, not included` : `${sourceLabel(metric.source)}${metric.sampleCount === null ? "" : ` · n=${metric.sampleCount}`}`;
 export const localizedMonth = (value: string) => { const [year, month] = value.split("-").map(Number); return new Intl.DateTimeFormat(undefined, { month: "short", year: "numeric" }).format(new Date(year!, month! - 1, 1, 12)); };
 export const stageCoverageDetail = (coverage: import("../src/reports/types.js").SleepStageCoverage) =>
   `Daily stage data (days): ${coverage.completeDays} complete, ${coverage.partialDays} partial, ${coverage.noStageDays} without stages`;

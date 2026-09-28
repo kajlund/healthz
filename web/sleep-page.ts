@@ -8,6 +8,7 @@ import {
 } from "./sleep-editor.js";
 import type { RecordActions } from "./record-actions.js";
 import "./record-actions.js";
+import "./sleep-monthly-page.js";
 import { parseSleepRoute, sleepEditorUrl, type SleepRoute } from "./sleep-routes.js";
 import { previousCalendarDay } from "./pap-date.js";
 import { emptyDateFilter, hasActiveFilter, parseDateFilter, updateDateFilterHash, type DateFilter } from "./measurement-filter-helpers.js";
@@ -381,10 +382,12 @@ export class SleepPage extends LitElement {
     </main>`;
   }
   render() {
+    if (this.route.kind === "monthly") return html`<sleep-monthly-page></sleep-monthly-page>`;
     if (this.route.kind !== "list") return this.renderEditor();
     const latest = this.records[0];
     return html`<main class="sleep-page"><section class="page-heading"><div><span class="eyebrow">Daily records</span><h1>Sleep</h1><p>Record your main sleep and any naps for each sleep day.</p></div><span class="section-index">03</span></section>
       <section class="summary" aria-label="Sleep summary"><div><span class="eyebrow">Latest sleep</span><strong>${latest ? formatDuration(latest.totalSleepMinutes) : "—"}</strong></div><div><span class="eyebrow">Latest score</span><strong>${latest?.sleepScore ?? "—"}</strong></div><div><span class="eyebrow">Sleep records</span><strong>${this.records.length}</strong></div></section>
+      <p><a href="#/measurements/sleep/monthly-averages">Monthly sleep averages</a></p>
       <section class="list-card"><div class="card-heading"><h2>Your sleep records</h2><a class="primary-button sleep-new-link" href=${sleepEditorUrl(null, this.route.returnTo)}>Add sleep</a></div>
         ${this.renderFilters()}
         ${this.error ? html`<div class="error-banner" role="alert">${this.error}</div>` : nothing}${this.renderList()}

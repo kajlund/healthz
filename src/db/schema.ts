@@ -1,6 +1,25 @@
 import { sql } from "drizzle-orm";
 import { check, date, index, integer, numeric, pgTable, primaryKey, text, time, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
+export const sleepMonthlyAverages = pgTable("sleep_monthly_averages", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),
+  averageTotalSleepMinutes: integer("average_total_sleep_minutes").notNull(),
+  averageDeepMinutes: integer("average_deep_minutes").notNull(),
+  averageLightMinutes: integer("average_light_minutes").notNull(),
+  averageRemMinutes: integer("average_rem_minutes").notNull(),
+  source: text("source").default("manual").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex("sleep_monthly_averages_year_month_unique").on(table.year, table.month),
+  check("sleep_monthly_averages_calendar_check", sql`${table.year} between 1900 and 9999 and ${table.month} between 1 and 12`),
+  check("sleep_monthly_averages_durations_check", sql`${table.averageTotalSleepMinutes} between 0 and 1440 and ${table.averageDeepMinutes} between 0 and 1440 and ${table.averageLightMinutes} between 0 and 1440 and ${table.averageRemMinutes} between 0 and 1440`),
+  check("sleep_monthly_averages_text_check", sql`length(trim(${table.source})) between 1 and 200 and length(${table.notes}) <= 2000`),
+]);
+
 export const bodyMeasurements = pgTable(
   "body_measurements",
   {

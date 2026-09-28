@@ -170,8 +170,15 @@ export const papRecordsApi = {
   delete: (id: string) => request<void>(`/api/pap-records/${id}`, { method: "DELETE" }),
 };
 
-export type ReportSource = "daily" | "none";
-export interface ReportMetric { value: number | null; source: ReportSource; sampleCount: number | null; }
+export type MonthlySleepAverage = Omit<import("../src/sleep-monthly-averages/repository.js").MonthlySleepAverage, "createdAt" | "updatedAt"> & { createdAt: string; updatedAt: string };
+export const monthlySleepApi = {
+  list: () => request<MonthlySleepAverage[]>("/api/sleep-monthly-averages"),
+  create: (input: import("../src/sleep-monthly-averages/schemas.js").MonthlySleepInput) => request<MonthlySleepAverage>("/api/sleep-monthly-averages", { method: "POST", body: JSON.stringify(input) }),
+  update: (year: number, month: number, input: import("../src/sleep-monthly-averages/schemas.js").MonthlySleepValues) => request<MonthlySleepAverage>(`/api/sleep-monthly-averages/${year}/${month}`, { method: "PUT", body: JSON.stringify(input) }),
+  delete: (year: number, month: number) => request<void>(`/api/sleep-monthly-averages/${year}/${month}`, { method: "DELETE" }),
+};
+export type ReportSource = import("../src/reports/types.js").MetricSource;
+export type ReportMetric = import("../src/reports/types.js").ReportMetric;
 export interface MonthlyReport {
   month: string;
   weight: null | { average: ReportMetric; minimum: ReportMetric; maximum: ReportMetric; first: ReportMetric; last: ReportMetric; measurementCount: number };

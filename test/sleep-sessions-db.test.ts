@@ -40,6 +40,7 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== "1")("Sleep PostgreSQL inte
       await pool.query(await readFile(new URL(`../drizzle/${name}.sql`, import.meta.url), "utf8"));
     }
     await pool.query(await readFile(new URL("../drizzle/0008_remove_stored_summaries.sql", import.meta.url), "utf8"));
+    await pool.query(await readFile(new URL("../drizzle/0009_sleep_monthly_averages.sql", import.meta.url), "utf8"));
     // A database failure after parent writes and child deletion tests real rollback.
     await pool.query("ALTER TABLE sleep_sessions ADD CONSTRAINT test_reject_label CHECK (label <> 'reject')");
     repository = createSleepRecordRepository(drizzle(pool, { logger: { logQuery: (query) => { queries.push(query); } } }));
@@ -160,7 +161,7 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== "1")("Sleep PostgreSQL inte
     const database = drizzle(pool, { logger: { logQuery: (query) => { queries.push(query); } } });
     queries.length = 0;
     const data = await createReportingDataSource(database).load([{ from: "2031-01", to: "2031-01" }]);
-    expect(queries.filter((query) => query.startsWith("select"))).toHaveLength(4);
+    expect(queries.filter((query) => query.startsWith("select"))).toHaveLength(5);
     expect(data.sleepRecords).toHaveLength(4);
     expect(data.sleepRecords.find(({ sleepDate }) => sleepDate === "2031-01-02")).toMatchObject({ stageCoverage: "partial", totalSleepMinutes: 450, lightMinutes: null, awakeCount: null });
     const report = calculateMonthlyReports(["2031-01"], data)[0]!.sleep;
