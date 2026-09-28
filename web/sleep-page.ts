@@ -2,9 +2,9 @@ import { LitElement, html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { sleepRecordsApi, type SleepRecord, type SleepSession } from "./api.js";
 import {
-  coverageLabels, defaultMainSleepTimes, draftFromRecord, firstSessionToDate, formatDuration, moveSession, newSession, newSleepDraft,
-  durationValue, previewSessions, removeSession, syncNapDates, typeLabels, validateDraft,
-  type DurationDraft, type DurationKey, type FieldErrors, type MeasurementsDraft, type SessionDraft, type SleepDraft,
+  coverageLabels, defaultMainSleepTimes, draftFromRecord, firstSessionToDate, formatDuration, formatDateTimeDisplay, formatHHMM, parseFlexibleDateTime, sessionIntervalMinutes, moveSession, newSession, newSleepDraft, pad,
+  durationValue, durationDraft, previewSessions, removeSession, syncNapDates, typeLabels, validateDraft,
+  type DurationDraft, type DurationKey, type StageDurationKey, type FieldErrors, type MeasurementsDraft, type SessionDraft, type SleepDraft,
 } from "./sleep-editor.js";
 import type { RecordActions } from "./record-actions.js";
 import "./record-actions.js";
@@ -89,12 +89,16 @@ export class SleepPage extends LitElement {
       let sessions = fromDate && toDate
         ? this.draft.sessions.map((session, index) => {
             if (index === 0 || session.sessionType === "main-sleep") {
-              const startTime = session.startedAt.includes("T") ? session.startedAt.slice(session.startedAt.indexOf("T")) : "T23:00";
-              const endTime = session.endedAt.includes("T") ? session.endedAt.slice(session.endedAt.indexOf("T")) : "T07:00";
+              const startParsed = session.startedAt ? parseFlexibleDateTime(session.startedAt) : null;
+              const endParsed = session.endedAt ? parseFlexibleDateTime(session.endedAt) : null;
+              const startH = startParsed ? startParsed.hours : 23;
+              const startM = startParsed ? startParsed.minutes : 0;
+              const endH = endParsed ? endParsed.hours : 7;
+              const endM = endParsed ? endParsed.minutes : 0;
               return {
                 ...session,
-                startedAt: session.startedAt ? `${fromDate}${startTime}` : session.startedAt,
-                endedAt: session.endedAt ? `${toDate}${endTime}` : session.endedAt,
+                startedAt: session.startedAt ? `${fromDate}T${pad(startH)}:${pad(startM)}` : session.startedAt,
+                endedAt: session.endedAt ? `${toDate}T${pad(endH)}:${pad(endM)}` : session.endedAt,
               };
             }
             return session;
@@ -123,20 +127,72 @@ export class SleepPage extends LitElement {
     }
     let sessions = this.draft.sessions.map((session, i) => i === index ? { ...session, ...change } : session);
     if (index === 0 && change.endedAt !== undefined && !this.draft.id) {
-      const toDate = change.endedAt.includes("T") ? change.endedAt.slice(0, change.endedAt.indexOf("T")) : "";
+      const toDate = change.endedAt.length >= 10 ? change.endedAt.slice(0, 10) : "";
       sessions = syncNapDates(sessions, toDate);
     }
     this.draft = { ...this.draft, sessions };
     if (field) this.clearError(`sessions.${index}.${field}`);
   }
-  private async addSession() {
-    const sessionType = this.draft.sessions.length ? "nap" : "main-sleep";
-    const session = newSession(sessionType);
-    if (!this.draft.id && sessionType === "main-sleep") {
-      const toDate = firstSessionToDate(this.draft);
-      Object.assign(session, defaultMainSleepTimes(toDate));
+  private handleSessionTypeChange(index: number, newType: SessionDraft["sessionType"]) {
+    const change: Partial<SessionDraft> = { sessionType: newType };
+    if (newType === "nap") {
+      change.deepMinutes = "";
+      change.lightMinutes = "";
+      change.remMinutes = "";
+      change.awakeCount = "";
+      change.awakeMinutes = "";
     }
-    this.draft = { ...this.draft, sessions: [...this.draft.sessions, session] }; this.errors = {}; this.notice = "Session added.";
+    this.setSession(index, change, "sessionType");
+  }
+  private async addSession() {
+    const isFirst = this.draft.sessions.length === 0;
+    const sessionType: SessionDraft["sessionType"] = isFirst ? "main-sleep" : "nap";
+    const session = newSession(sessionType);
+    const toDate = firstSessionToDate(this.draft);
+
+    if (sessionType === "main-sleep") {
+      if (!this.draft.id) {
+        Object.assign(session, defaultMainSleepTimes(toDate));
+      }
+    } else {
+      // New session defaults to after the prior session
+      const prior = this.draft.sessions[this.draft.sessions.length - 1];
+      const priorEnd = prior ? (prior.endedAt || prior.startedAt) : null;
+      let napDate = toDate;
+      let startHour = 13;
+      let startMinute = 0;
+
+      if (priorEnd) {
+        const parsed = parseFlexibleDateTime(priorEnd);
+        if (parsed) {
+          napDate = `${parsed.year}-${pad(parsed.month)}-${pad(parsed.day)}`;
+          if (parsed.hours < 12) {
+            startHour = 13;
+            startMinute = 0;
+          } else {
+            startHour = parsed.hours + 1;
+            startMinute = parsed.minutes;
+            if (startHour >= 24) {
+              startHour = 23;
+              startMinute = 30;
+            }
+          }
+        }
+      }
+      const endHour = Math.min(startHour + 1, 23);
+      const endMinute = endHour === startHour ? 59 : startMinute;
+      const startIso = `${napDate}T${pad(startHour)}:${pad(startMinute)}`;
+      const endIso = `${napDate}T${pad(endHour)}:${pad(endMinute)}`;
+      const durationMin = (endHour - startHour) * 60 + (endMinute - startMinute);
+
+      session.startedAt = startIso;
+      session.endedAt = endIso;
+      session.totalSleepMinutes = durationDraft(durationMin > 0 ? durationMin : 60);
+    }
+
+    this.draft = { ...this.draft, sessions: [...this.draft.sessions, session] };
+    this.errors = {};
+    this.notice = "Session added.";
     await this.updateComplete;
     this.querySelector<HTMLSelectElement>(`#${session.key}-type`)?.focus();
   }
@@ -207,15 +263,35 @@ export class SleepPage extends LitElement {
   }
   private formatDate(value: string) { return new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)); }
   private fieldError(key: string) { return this.errors[key] ? html`<small class="sleep-field-error" id=${`sleep-error-${key}`}>${this.errors[key]}</small>` : nothing; }
-  private durationInput(label: string, key: DurationKey, row: MeasurementsDraft, set: (value: DurationDraft) => void, prefix = "") {
+  private durationInput(label: string, key: StageDurationKey, row: MeasurementsDraft, set: (value: string) => void, prefix = "") {
     const field = `${prefix}${key}`;
-    return html`<fieldset class="duration-field"><legend>${label}${key === "totalSleepMinutes" ? " *" : ""}</legend>
-      <div class="duration-inputs">${(["hours", "minutes"] as const).map((part) => html`
-        <label><span class="sr-only">${label} ${part}</span><input type="number" min="0" max=${part === "minutes" ? 59 : this.draft.detailMode === "summary" ? 24 : 35791394}
-          step="1" inputmode="numeric" placeholder=${part === "hours" ? "h" : "min"} .value=${row[key][part]}
-          data-field=${field} aria-invalid=${this.errors[field] ? "true" : "false"} aria-describedby=${this.errors[field] ? `sleep-error-${field}` : nothing}
-          @input=${(event: InputEvent) => set({ ...row[key], [part]: (event.target as HTMLInputElement).value })} /></label><span>${part === "hours" ? "h" : "min"}</span>`)}
-      </div>${this.fieldError(field)}</fieldset>`;
+    const rawVal = row[key];
+    const value = typeof rawVal === "object" && rawVal !== null
+      ? (rawVal.hours === "" && rawVal.minutes === "" ? "" : `${pad(Number(rawVal.hours || 0))}${pad(Number(rawVal.minutes || 0))}`)
+      : String(rawVal ?? "");
+    const isRequired = key === "totalSleepMinutes";
+    return html`<label>${label}${isRequired ? html` <span class="required-marker">*</span>` : ""} <span>HHMM</span>
+      <input
+        aria-label=${label}
+        type="text"
+        inputmode="numeric"
+        placeholder="HHMM"
+        .value=${value}
+        data-field=${field}
+        aria-invalid=${this.errors[field] ? "true" : "false"}
+        aria-describedby=${this.errors[field] ? `sleep-error-${field}` : nothing}
+        @input=${(event: InputEvent) => set((event.target as HTMLInputElement).value)}
+        @blur=${(event: FocusEvent) => {
+          const input = event.target as HTMLInputElement;
+          const formatted = formatHHMM(input.value);
+          if (formatted && formatted !== input.value) {
+            input.value = formatted;
+            set(formatted);
+          }
+        }}
+      />
+      ${this.fieldError(field)}
+    </label>`;
   }
   private awakeInput(row: MeasurementsDraft, set: (value: string) => void, prefix = "") {
     const field = `${prefix}awakeCount`;
@@ -223,48 +299,152 @@ export class SleepPage extends LitElement {
       data-field=${field} aria-invalid=${this.errors[field] ? "true" : "false"} aria-describedby=${this.errors[field] ? `sleep-error-${field}` : nothing}
       @input=${(event: InputEvent) => set((event.target as HTMLInputElement).value)} />${this.fieldError(field)}</label>`;
   }
-  private optionalMeasurements(row: MeasurementsDraft, set: (key: DurationKey | "awakeCount", value: DurationDraft | string) => void, prefix = "") {
+  private awakeDurationInput(row: MeasurementsDraft, set: (value: string) => void, prefix = "") {
+    const field = `${prefix}awakeMinutes`;
+    return html`<label>Total time awake <span>min</span><input aria-label="Total time awake" type="number" min="0" max=${this.draft.detailMode === "summary" ? 1440 : 2147483647}
+      step="1" inputmode="numeric" placeholder="min" .value=${row.awakeMinutes}
+      data-field=${field} aria-invalid=${this.errors[field] ? "true" : "false"} aria-describedby=${this.errors[field] ? `sleep-error-${field}` : nothing}
+      @input=${(event: InputEvent) => set((event.target as HTMLInputElement).value)} />${this.fieldError(field)}</label>`;
+  }
+  private optionalMeasurements(row: MeasurementsDraft, set: (key: DurationKey | "awakeCount", value: string) => void, prefix = "") {
     return html`<div class="sleep-stage-fields sleep-fields-grid">
       ${this.durationInput("Deep", "deepMinutes", row, (value) => set("deepMinutes", value), prefix)}
       ${this.durationInput("Light", "lightMinutes", row, (value) => set("lightMinutes", value), prefix)}
       ${this.durationInput("REM", "remMinutes", row, (value) => set("remMinutes", value), prefix)}</div>
       <fieldset class="sleep-awake-fields"><legend>Awake</legend><div class="sleep-fields-grid">
         ${this.awakeInput(row, (value) => set("awakeCount", value), prefix)}
-        ${this.durationInput("Total time awake", "awakeMinutes", row, (value) => set("awakeMinutes", value), prefix)}
+        ${this.awakeDurationInput(row, (value) => set("awakeMinutes", value), prefix)}
       </div></fieldset>`;
   }
-  private sessionTimes(session: SessionDraft, index: number) {
+  private maybeAutoCalculateNapDuration(index: number) {
+    const session = this.draft.sessions[index];
+    if (!session || !session.startedAt || !session.endedAt) return;
+    const diff = sessionIntervalMinutes(session.startedAt, session.endedAt);
+    if (diff != null && diff > 0) {
+      if (session.sessionType === "nap" || !session.totalSleepMinutes || session.totalSleepMinutes === "0000") {
+        this.setSession(index, { totalSleepMinutes: durationDraft(diff) }, "totalSleepMinutes");
+      }
+    }
+  }
+  private handleTimeInput(event: InputEvent, index: number, key: "startedAt" | "endedAt", defaultDate?: string) {
+    const input = event.target as HTMLInputElement;
+    let val = input.value;
+    if (/^\d{8}\s$/.test(val)) {
+      input.value = val;
+    } else if (/^\d{12}$/.test(val)) {
+      const parsed = parseFlexibleDateTime(val, defaultDate);
+      if (parsed) {
+        input.value = parsed.display;
+        this.setSession(index, { [key]: parsed.iso }, key);
+        this.maybeAutoCalculateNapDuration(index);
+        return;
+      }
+    }
+    const parsed = parseFlexibleDateTime(val, defaultDate);
+    this.setSession(index, { [key]: parsed ? parsed.iso : val }, key);
+    if (parsed) this.maybeAutoCalculateNapDuration(index);
+  }
+  private handleTimeBlur(event: FocusEvent, index: number, key: "startedAt" | "endedAt", defaultDate?: string) {
+    const input = event.target as HTMLInputElement;
+    const val = input.value.trim();
+    if (!val) {
+      input.value = "";
+      this.setSession(index, { [key]: "" }, key);
+      return;
+    }
+    const parsed = parseFlexibleDateTime(val, defaultDate);
+    if (parsed) {
+      input.value = parsed.display;
+      this.setSession(index, { [key]: parsed.iso }, key);
+      this.maybeAutoCalculateNapDuration(index);
+    } else {
+      this.setSession(index, { [key]: val }, key);
+    }
+  }
+  private handleTimeKeyDown(event: KeyboardEvent) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      (event.target as HTMLInputElement).blur();
+    }
+  }
+  private clearSessionTimes(index: number) {
+    this.setSession(index, { startedAt: "", endedAt: "" }, "startedAt");
+    this.clearError(`sessions.${index}.endedAt`);
+  }
+  private sessionTimingRow(session: SessionDraft, index: number) {
     const prefix = `sessions.${index}.`;
-    return html`<div class="sleep-fields-grid">${(["startedAt", "endedAt"] as const).map((key) => html`
-      <label>${key === "startedAt" ? "From" : "To"}<input aria-label=${key === "startedAt" ? "From" : "To"} type="datetime-local" step="60" .value=${session[key]}
-        data-field=${`${prefix}${key}`} aria-invalid=${this.errors[`${prefix}${key}`] ? "true" : "false"}
-        aria-describedby=${this.errors[`${prefix}${key}`] ? `sleep-error-${prefix}${key}` : "sleep-time-help"}
-        @input=${(event: InputEvent) => this.setSession(index, { [key]: (event.target as HTMLInputElement).value }, key)} />${this.fieldError(`${prefix}${key}`)}</label>`)}</div>`;
+    const hasTimes = Boolean(session.startedAt || session.endedAt);
+    const duration = this.durationInput("Total sleep", "totalSleepMinutes", session, (value) => this.setSession(index, { totalSleepMinutes: value }, "totalSleepMinutes"), prefix);
+    return html`<div class="sleep-times-container">
+      <div class="sleep-times-bar">
+        <span>Session interval & duration</span>
+        ${hasTimes ? html`<button type="button" class="sleep-clear-times" @click=${() => this.clearSessionTimes(index)}>Clear times</button>` : nothing}
+      </div>
+      <div class="sleep-timing-grid">${(["startedAt", "endedAt"] as const).map((key) => {
+        const field = `${prefix}${key}`;
+        const isStart = key === "startedAt";
+        const labelText = isStart ? "From" : "To";
+        const defaultDate = isStart
+          ? (session.startedAt ? session.startedAt.slice(0, 10) : previousCalendarDay(this.draft.sleepDate))
+          : (session.endedAt ? session.endedAt.slice(0, 10) : this.draft.sleepDate);
+        return html`
+          <label>${labelText} <span>YYYYMMDD HHMM</span>
+            <input
+              aria-label=${labelText}
+              type="text"
+              placeholder="YYYYMMDD HHMM"
+              .value=${formatDateTimeDisplay(session[key])}
+              data-field=${field}
+              aria-invalid=${this.errors[field] ? "true" : "false"}
+              aria-describedby=${this.errors[field] ? `sleep-error-${field}` : "sleep-time-help"}
+              @input=${(event: InputEvent) => this.handleTimeInput(event, index, key, defaultDate)}
+              @blur=${(event: FocusEvent) => this.handleTimeBlur(event, index, key, defaultDate)}
+              @keydown=${(event: KeyboardEvent) => this.handleTimeKeyDown(event)}
+            />
+            ${this.fieldError(field)}
+          </label>
+        `;
+      })}${duration}</div>
+    </div>`;
   }
   private sessionMetadata(session: SessionDraft, index: number) {
     return html`<div class="sleep-fields-grid">
       ${(["label", "source"] as const).map((key) => html`<label>${key === "label" ? "Label (optional)" : "Source (optional)"}
         <input maxlength="200" .value=${session[key]} data-field=${`sessions.${index}.${key}`}
-          aria-invalid=${this.errors[`sessions.${index}.${key}`] ? "true" : "false"}
-          aria-describedby=${this.errors[`sessions.${index}.${key}`] ? `sleep-error-sessions.${index}.${key}` : nothing}
-          @input=${(event: InputEvent) => this.setSession(index, { [key]: (event.target as HTMLInputElement).value }, key)} />${this.fieldError(`sessions.${index}.${key}`)}</label>`)}
+        aria-invalid=${this.errors[`sessions.${index}.${key}`] ? "true" : "false"}
+        aria-describedby=${this.errors[`sessions.${index}.${key}`] ? `sleep-error-sessions.${index}.${key}` : nothing}
+        @input=${(event: InputEvent) => this.setSession(index, { [key]: (event.target as HTMLInputElement).value }, key)} />${this.fieldError(`sessions.${index}.${key}`)}</label>`)}
     </div>`;
   }
   private renderSession(session: SessionDraft, index: number) {
     const prefix = `sessions.${index}.`;
+    const isNap = session.sessionType === "nap";
     const main = session.sessionType === "main-sleep";
     const total = durationValue(session.totalSleepMinutes);
-    const duration = this.durationInput("Total sleep", "totalSleepMinutes", session, (value) => this.setSession(index, { totalSleepMinutes: value }, "totalSleepMinutes"), prefix);
     const optional = this.optionalMeasurements(session, (key, value) => this.setSession(index, { [key]: value }, key), prefix);
     return html`<section class="sleep-session-card" aria-labelledby=${`${session.key}-heading`}>
       <h3 id=${`${session.key}-heading`} tabindex="-1">${typeLabels[session.sessionType]}${session.label ? ` · ${session.label}` : ""} · Session ${index + 1}${total != null && Number.isFinite(total) ? ` · ${formatDuration(total)}` : ""}</h3>
-      <label class="sleep-session-type">Session type<select id=${`${session.key}-type`} .value=${session.sessionType} @change=${(event: Event) => this.setSession(index, { sessionType: (event.target as HTMLSelectElement).value as SessionDraft["sessionType"] })}>
+      <label class="sleep-session-type">Session type<select id=${`${session.key}-type`} .value=${session.sessionType} @change=${(event: Event) => this.handleSessionTypeChange(index, (event.target as HTMLSelectElement).value as SessionDraft["sessionType"])}>
         <option value="main-sleep">Main sleep</option><option value="nap">Nap</option><option value="other">Other</option></select></label>
-      ${main ? html`<div class="sleep-session-content">${this.sessionTimes(session, index)}${duration}${optional}${this.sessionMetadata(session, index)}</div>` : html`
-        ${duration}
-        <details class="sleep-optional-details" .open=${session.detailsOpen} @toggle=${(event: Event) => { const open = (event.target as HTMLDetailsElement).open; if (open !== session.detailsOpen) this.setSession(index, { detailsOpen: open }); }}>
-          <summary>Add details</summary><div class="sleep-session-content">${this.sessionTimes(session, index)}${optional}${this.sessionMetadata(session, index)}</div>
-        </details>`}
+      ${isNap ? html`
+        <div class="sleep-session-content">
+          ${this.sessionTimingRow(session, index)}
+          ${this.sessionMetadata(session, index)}
+        </div>
+      ` : main ? html`
+        <div class="sleep-session-content">
+          ${this.sessionTimingRow(session, index)}
+          ${optional}
+          ${this.sessionMetadata(session, index)}
+        </div>
+      ` : html`
+        <div class="sleep-session-content">
+          ${this.sessionTimingRow(session, index)}
+          <details class="sleep-optional-details" .open=${session.detailsOpen} @toggle=${(event: Event) => { const open = (event.target as HTMLDetailsElement).open; if (open !== session.detailsOpen) this.setSession(index, { detailsOpen: open }); }}>
+            <summary>Add details</summary><div class="sleep-session-content">${optional}${this.sessionMetadata(session, index)}</div>
+          </details>
+        </div>
+      `}
       <div class="sleep-session-actions">
         <button type="button" class="text-button" ?disabled=${index === 0} aria-label=${`Move session ${index + 1} up`} @click=${() => this.reorderSession(index, -1)}>Move up</button>
         <button type="button" class="text-button" ?disabled=${index === this.draft.sessions.length - 1} aria-label=${`Move session ${index + 1} down`} @click=${() => this.reorderSession(index, 1)}>Move down</button>

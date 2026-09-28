@@ -804,6 +804,12 @@ report-chart canvas { max-width: 100%; }
 .sleep-daily-total { background: var(--soft); }
 .sleep-preview { padding: 14px; border: 1px solid #bfd2c3; border-radius: 10px; background: var(--soft); font-size: 13px; line-height: 1.5; }
 .sleep-sessions-heading { margin: 10px 0 0; font-size: 18px; }
+.sleep-times-container { display: grid; gap: 8px; }
+.sleep-times-bar { display: flex; justify-content: space-between; align-items: baseline; }
+.sleep-times-bar span { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.sleep-clear-times { font-size: 11px; color: var(--accent); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.sleep-clear-times:hover { color: var(--danger); }
+.sleep-timing-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .sleep-editor-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .sleep-editor-actions button { min-height: 46px; min-width: 110px; margin: 0; padding: 10px 20px; }
 .sleep-page .list-card { margin-top: 24px; }
@@ -817,7 +823,7 @@ record-actions { display: inline-block; }
 .record-actions-menu [role="menuitem"]:hover, .record-actions-menu [role="menuitem"]:focus-visible { background: var(--soft); }
 .record-actions-menu [role="menuitem"]:focus-visible, .record-actions-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 @media (max-width: 760px) {
-  .sleep-page .sleep-daily-fields, .sleep-page .sleep-fields-grid { grid-template-columns: minmax(0, 1fr); }
+  .sleep-page .sleep-daily-fields, .sleep-page .sleep-fields-grid, .sleep-page .sleep-stage-fields, .sleep-page .sleep-timing-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Config & Data Takeout */
