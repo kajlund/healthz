@@ -21,7 +21,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed:healthcare-tags": "tsx src/seed-healthcare-tags.ts",
-    "import:history": "tsx src/import-history.ts"
+    "import:history": "tsx src/import-history.ts",
+    "import:blood-pressure": "tsx src/import-blood-pressure.ts"
   },
   "dependencies": {
     "chart.js": "^4.5.1",
