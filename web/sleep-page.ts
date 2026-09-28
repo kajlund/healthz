@@ -110,7 +110,7 @@ export class SleepPage extends LitElement {
     this.draft = { ...this.draft, [key]: value }; this.clearError(key);
   }
   private clearError(key: string) { const errors = { ...this.errors }; delete errors[key]; this.errors = errors; this.notice = ""; }
-  private setSummary(key: DurationKey | "awakeCount", value: DurationDraft | string) {
+  private setSummary(key: DurationKey | "awakeCount" | "awakeMinutes", value: DurationDraft | string) {
     this.draft = { ...this.draft, summary: { ...this.draft.summary, [key]: value } }; this.clearError(key);
   }
   private setSession(index: number, change: Partial<SessionDraft>, field?: string) {
@@ -149,9 +149,9 @@ export class SleepPage extends LitElement {
   }
   private async deleteSession(index: number) {
     const session = this.draft.sessions[index]!;
-    const populated = [session.label, session.source, session.startedAt, session.endedAt, session.awakeCount,
+    const populated = [session.label, session.source, session.startedAt, session.endedAt, session.awakeCount, session.awakeMinutes,
       ...Object.values(session.totalSleepMinutes), ...Object.values(session.deepMinutes), ...Object.values(session.lightMinutes),
-      ...Object.values(session.remMinutes), ...Object.values(session.awakeMinutes)].some((value) => value !== "");
+      ...Object.values(session.remMinutes)].some((value) => value !== "");
     if (this.draft.sessions.length === 1 || (populated && !window.confirm(`Remove session ${index + 1} (${typeLabels[session.sessionType]}) and its entered values?`))) return;
     this.draft = { ...this.draft, sessions: removeSession(this.draft.sessions, this.draft.sessions[index]!.key) };
     this.errors = {}; this.notice = `Session ${index + 1} removed. Changes are not saved yet.`;
@@ -223,14 +223,21 @@ export class SleepPage extends LitElement {
       data-field=${field} aria-invalid=${this.errors[field] ? "true" : "false"} aria-describedby=${this.errors[field] ? `sleep-error-${field}` : nothing}
       @input=${(event: InputEvent) => set((event.target as HTMLInputElement).value)} />${this.fieldError(field)}</label>`;
   }
-  private optionalMeasurements(row: MeasurementsDraft, set: (key: DurationKey | "awakeCount", value: DurationDraft | string) => void, prefix = "") {
+  private awakeDurationInput(row: MeasurementsDraft, set: (value: string) => void, prefix = "") {
+    const field = `${prefix}awakeMinutes`;
+    return html`<label>Total time awake <span>min</span><input aria-label="Total time awake" type="number" min="0" max=${this.draft.detailMode === "summary" ? 1440 : 2147483647}
+      step="1" inputmode="numeric" placeholder="min" .value=${row.awakeMinutes}
+      data-field=${field} aria-invalid=${this.errors[field] ? "true" : "false"} aria-describedby=${this.errors[field] ? `sleep-error-${field}` : nothing}
+      @input=${(event: InputEvent) => set((event.target as HTMLInputElement).value)} />${this.fieldError(field)}</label>`;
+  }
+  private optionalMeasurements(row: MeasurementsDraft, set: (key: DurationKey | "awakeCount" | "awakeMinutes", value: DurationDraft | string) => void, prefix = "") {
     return html`<div class="sleep-stage-fields sleep-fields-grid">
-      ${this.durationInput("Deep", "deepMinutes", row, (value) => set("deepMinutes", value), prefix)}
-      ${this.durationInput("Light", "lightMinutes", row, (value) => set("lightMinutes", value), prefix)}
-      ${this.durationInput("REM", "remMinutes", row, (value) => set("remMinutes", value), prefix)}</div>
+      ${this.durationInput("Deep", "deepMinutes", row, (value) => set("deepMinutes", value as DurationDraft), prefix)}
+      ${this.durationInput("Light", "lightMinutes", row, (value) => set("lightMinutes", value as DurationDraft), prefix)}
+      ${this.durationInput("REM", "remMinutes", row, (value) => set("remMinutes", value as DurationDraft), prefix)}</div>
       <fieldset class="sleep-awake-fields"><legend>Awake</legend><div class="sleep-fields-grid">
         ${this.awakeInput(row, (value) => set("awakeCount", value), prefix)}
-        ${this.durationInput("Total time awake", "awakeMinutes", row, (value) => set("awakeMinutes", value), prefix)}
+        ${this.awakeDurationInput(row, (value) => set("awakeMinutes", value), prefix)}
       </div></fieldset>`;
   }
   private sessionTimes(session: SessionDraft, index: number) {

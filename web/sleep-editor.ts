@@ -4,9 +4,12 @@ import type { SleepRecord, SleepRecordInput, SleepSession, SleepSessionInput } f
 import { previousCalendarDay } from "./pap-date.js";
 
 export type DetailMode = "summary" | "sessions";
-export type DurationKey = "totalSleepMinutes" | "awakeMinutes" | "lightMinutes" | "deepMinutes" | "remMinutes";
+export type DurationKey = "totalSleepMinutes" | "lightMinutes" | "deepMinutes" | "remMinutes";
 export type DurationDraft = { hours: string; minutes: string };
-export type MeasurementsDraft = Record<DurationKey, DurationDraft> & { awakeCount: string };
+export type MeasurementsDraft = Record<DurationKey, DurationDraft> & {
+  awakeCount: string;
+  awakeMinutes: string;
+};
 export type SessionDraft = MeasurementsDraft & {
   key: string; sessionType: SleepSessionInput["sessionType"]; label: string; source: string;
   startedAt: string; endedAt: string; originalStartedAt?: string | null; originalEndedAt?: string | null; detailsOpen: boolean;
@@ -15,17 +18,20 @@ export interface SleepDraft {
   id: string | null; originalMode: DetailMode; detailMode: DetailMode; sleepDate: string;
   summary: MeasurementsDraft; sessions: SessionDraft[]; sleepScore: string; source: string; notes: string;
 }
-export const durationKeys: DurationKey[] = ["totalSleepMinutes", "awakeMinutes", "lightMinutes", "deepMinutes", "remMinutes"];
+export const durationKeys: DurationKey[] = ["totalSleepMinutes", "lightMinutes", "deepMinutes", "remMinutes"];
 export const coverageLabels = { complete: "Complete stage data", partial: "Partial stage data", none: "No stage data" };
 export const typeLabels = { "main-sleep": "Main sleep", nap: "Nap", other: "Other" };
 export const formatDuration = (minutes: number) => `${Math.floor(minutes / 60)} h ${minutes % 60} min`;
 export const durationDraft = (value: number | null | undefined): DurationDraft => value == null
   ? { hours: "", minutes: "" } : { hours: String(Math.floor(value / 60)), minutes: String(value % 60) };
-type Measurements = { [K in DurationKey]?: number | null } & { awakeCount?: number | null };
+type Measurements = { [K in DurationKey]?: number | null } & { awakeCount?: number | null; awakeMinutes?: number | null };
 export const measurementDraft = (values: Measurements = {}): MeasurementsDraft => ({
-  totalSleepMinutes: durationDraft(values.totalSleepMinutes), awakeMinutes: durationDraft(values.awakeMinutes),
-  lightMinutes: durationDraft(values.lightMinutes), deepMinutes: durationDraft(values.deepMinutes), remMinutes: durationDraft(values.remMinutes),
+  totalSleepMinutes: durationDraft(values.totalSleepMinutes),
+  lightMinutes: durationDraft(values.lightMinutes),
+  deepMinutes: durationDraft(values.deepMinutes),
+  remMinutes: durationDraft(values.remMinutes),
   awakeCount: values.awakeCount == null ? "" : String(values.awakeCount),
+  awakeMinutes: values.awakeMinutes == null ? "" : String(values.awakeMinutes),
 });
 let nextKey = 0;
 export const newSession = (sessionType: SessionDraft["sessionType"] = "main-sleep"): SessionDraft => ({
@@ -99,15 +105,23 @@ export const draftFromRecord = (record: SleepRecord): SleepDraft => ({
   source: record.source, notes: record.notes ?? "",
 });
 export const optionalInteger = (value: string): number | null => value.trim() === "" ? null : Number(value);
+export const optionalMinutes = (value: string): number | null => {
+  if (value.trim() === "") return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : NaN;
+};
 export const durationValue = ({ hours, minutes }: DurationDraft): number | null => {
   if (hours === "" && minutes === "") return null;
   const h = Number(hours || 0), m = Number(minutes || 0);
   return Number.isInteger(h) && h >= 0 && Number.isInteger(m) && m >= 0 && m <= 59 ? h * 60 + m : NaN;
 };
 const measurements = (draft: MeasurementsDraft) => ({
-  totalSleepMinutes: durationValue(draft.totalSleepMinutes), awakeMinutes: durationValue(draft.awakeMinutes),
-  awakeCount: optionalInteger(draft.awakeCount), lightMinutes: durationValue(draft.lightMinutes),
-  deepMinutes: durationValue(draft.deepMinutes), remMinutes: durationValue(draft.remMinutes),
+  totalSleepMinutes: durationValue(draft.totalSleepMinutes),
+  awakeMinutes: optionalMinutes(draft.awakeMinutes),
+  awakeCount: optionalInteger(draft.awakeCount),
+  lightMinutes: durationValue(draft.lightMinutes),
+  deepMinutes: durationValue(draft.deepMinutes),
+  remMinutes: durationValue(draft.remMinutes),
 });
 const known = (value: number | null) => value !== null && Number.isInteger(value) && value >= 0 && value <= 2_147_483_647;
 export const previewSessions = (sessions: SessionDraft[]) => {
@@ -141,6 +155,10 @@ export const validateDraft = (draft: SleepDraft): { input?: SleepRecordInput; er
       if ((key === "totalSleepMinutes" && (value === null || value <= 0)) || (value !== null && (!known(value) || value > max))) {
         errors[`${prefix}${key}`] = key === "totalSleepMinutes" ? `Enter a positive duration, at most ${max} minutes. Minutes must be 0–59.` : `Enter a duration from 0 to ${max} minutes, or leave blank. Minutes must be 0–59.`;
       }
+    }
+    const max = draft.detailMode === "summary" ? 1440 : 2_147_483_647;
+    if (values.awakeMinutes !== null && (!known(values.awakeMinutes) || values.awakeMinutes > max)) {
+      errors[`${prefix}awakeMinutes`] = `Enter a duration from 0 to ${max} minutes, or leave blank.`;
     }
     if (values.awakeCount !== null && !known(values.awakeCount)) errors[`${prefix}awakeCount`] = "Enter a whole number of awakenings from 0 to 2147483647, or leave blank.";
     return { ...values, totalSleepMinutes: values.totalSleepMinutes ?? 0 };

@@ -116,4 +116,32 @@ describe("Sleep editor drafts", () => {
     expect(() => serializeLocalTime("2026-03-29T03:30")).toThrow("clock change");
     expect(serializeLocalTime("")).toBeNull();
   });
+  it("enters awakeMinutes in minutes only and validates correctly", () => {
+    const draft = newSleepDraft();
+    expect(draft.summary.awakeMinutes).toBe("");
+    expect(draft.sessions[0]!.awakeMinutes).toBe("");
+
+    // Number of minutes in summary mode
+    draft.detailMode = "summary";
+    draft.summary.totalSleepMinutes = { hours: "7", minutes: "0" };
+    draft.summary.awakeMinutes = "45";
+    expect(validateDraft(draft).input).toMatchObject({ totalSleepMinutes: 420, awakeMinutes: 45 });
+
+    // Negative minutes rejected
+    draft.summary.awakeMinutes = "-5";
+    expect(validateDraft(draft).errors["awakeMinutes"]).toBeTruthy();
+
+    // Minutes exceeding 24 hours in summary mode rejected
+    draft.summary.awakeMinutes = "1441";
+    expect(validateDraft(draft).errors["awakeMinutes"]).toBeTruthy();
+
+    // In session mode
+    draft.detailMode = "sessions";
+    draft.sessions[0]!.totalSleepMinutes = { hours: "7", minutes: "0" };
+    draft.sessions[0]!.awakeMinutes = "30";
+    const res = validateDraft(draft);
+    expect(res.errors).toEqual({});
+    if (res.input?.detailMode !== "sessions") throw new Error("Expected sessions");
+    expect(res.input.sessions[0]).toMatchObject({ awakeMinutes: 30 });
+  });
 });
