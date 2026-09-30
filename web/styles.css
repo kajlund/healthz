@@ -121,7 +121,7 @@ h2 { margin: 5px 0 0; font-family: Georgia, serif; font-size: 25px; font-weight:
 .sleep-page .error-banner { margin: 12px 0; padding: 12px; }
 .source-cell strong { font-size: 18px; }
 .pap-workspace { grid-template-columns: minmax(0, 1fr) 390px; }
-.pap-grid { grid-template-columns: minmax(210px, 1.45fr) 1.1fr 1.1fr .65fr auto; }
+.pap-grid { grid-template-columns: minmax(210px, 1.45fr) 1.1fr 1.1fr auto; }
 .pap-metrics { display: grid; gap: 4px; color: #4e5b52; font-size: 12px; }
 .pap-metrics strong { color: var(--ink); font-family: Georgia, serif; font-size: 18px; font-weight: 500; }
 .pap-grid .date-cell { min-width: 0; }
@@ -718,7 +718,6 @@ report-chart canvas { max-width: 100%; }
   .monthly-row .monthly-values { grid-column: 1 / -1; }
   .monthly-row .actions { grid-column: 1 / -1; }
   .pap-grid .pap-metrics:nth-child(3) { grid-column: 1 / -1; }
-  .pap-grid .source-cell { text-align: right; }
   .pap-grid .actions { grid-column: 1 / -1; }
   .sleep-grid .stage-cell { grid-column: 1 / -1; }
   .sleep-grid .source-cell { text-align: right; }
