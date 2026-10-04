@@ -42,8 +42,37 @@ export const localDateTime = (value: string | Date): string => {
   const date = typeof value === "string" ? new Date(value) : value;
   return `${pad(date.getFullYear(), 4)}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
 };
+export const splitDateTime = (value: string): { date: string; time: string } => {
+  if (!value) return { date: "", time: "" };
+  const tIndex = value.indexOf("T");
+  if (tIndex === -1) return { date: value, time: "" };
+  return { date: value.slice(0, tIndex), time: value.slice(tIndex + 1, tIndex + 6) };
+};
+export const combineDateTime = (date: string, time: string): string => {
+  const d = date.trim();
+  const t = time.trim();
+  if (!d && !t) return "";
+  if (!t) return d;
+  if (!d) return `T${t}`;
+  return `${d}T${t}`;
+};
+export const durationFromTimes = (startedAt: string, endedAt: string): DurationDraft | null => {
+  if (!startedAt || !endedAt || !startedAt.includes("T") || !endedAt.includes("T")) return null;
+  const start = new Date(startedAt);
+  const end = new Date(endedAt);
+  if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) return null;
+  const diffMinutes = Math.round((end.getTime() - start.getTime()) / 60000);
+  if (diffMinutes <= 0) return null;
+  return {
+    hours: String(Math.floor(diffMinutes / 60)),
+    minutes: String(diffMinutes % 60),
+  };
+};
 export const serializeLocalTime = (value: string, original?: string | null): string | null => {
   if (!value) return null;
+  if (!value.includes("T") || !value.slice(0, value.indexOf("T")) || !value.slice(value.indexOf("T") + 1)) {
+    throw new Error("Enter both date and time, or leave blank.");
+  }
   const normalized = value.length === 16 ? `${value}:00.000` : value.length === 19 ? `${value}.000` : value.replace(/\.(\d{1,3})$/, (_, fraction: string) => `.${fraction.padEnd(3, "0")}`);
   // Preserve the original instant, including during a repeated daylight-saving hour.
   if (original && (value.length === 16 ? localDateTime(original).slice(0, 16) === value : localDateTime(original) === normalized)) return original;

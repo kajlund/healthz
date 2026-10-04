@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { defaultMainSleepTimes, draftFromRecord, durationDraft, firstSessionToDate, localDateTime, measurementDraft, moveSession, newSession, newSleepDraft, previewSessions, removeSession, serializeLocalTime, syncNapDates, validateDraft } from "../web/sleep-editor.js";
+import { combineDateTime, defaultMainSleepTimes, draftFromRecord, durationDraft, durationFromTimes, firstSessionToDate, localDateTime, measurementDraft, moveSession, newSession, newSleepDraft, previewSessions, removeSession, serializeLocalTime, splitDateTime, syncNapDates, validateDraft } from "../web/sleep-editor.js";
 import { previousCalendarDay } from "../web/pap-date.js";
 import type { SleepRecord } from "../web/api.js";
 
@@ -143,5 +143,28 @@ describe("Sleep editor drafts", () => {
     expect(res.errors).toEqual({});
     if (res.input?.detailMode !== "sessions") throw new Error("Expected sessions");
     expect(res.input.sessions[0]).toMatchObject({ awakeMinutes: 30 });
+  });
+  it("splits and combines datetime-local strings correctly", () => {
+    expect(splitDateTime("2026-10-04T13:00")).toEqual({ date: "2026-10-04", time: "13:00" });
+    expect(splitDateTime("2026-10-04")).toEqual({ date: "2026-10-04", time: "" });
+    expect(splitDateTime("T13:00")).toEqual({ date: "", time: "13:00" });
+    expect(splitDateTime("")).toEqual({ date: "", time: "" });
+
+    expect(combineDateTime("2026-10-04", "13:00")).toBe("2026-10-04T13:00");
+    expect(combineDateTime("2026-10-04", "")).toBe("2026-10-04");
+    expect(combineDateTime("", "13:00")).toBe("T13:00");
+    expect(combineDateTime("", "")).toBe("");
+  });
+  it("calculates duration from start and end times automatically", () => {
+    expect(durationFromTimes("2026-10-04T13:00", "2026-10-04T14:30")).toEqual({ hours: "1", minutes: "30" });
+    expect(durationFromTimes("2026-10-03T23:00", "2026-10-04T07:00")).toEqual({ hours: "8", minutes: "0" });
+    expect(durationFromTimes("2026-10-04T14:00", "2026-10-04T13:00")).toBeNull();
+    expect(durationFromTimes("2026-10-04T13:00", "2026-10-04T13:00")).toBeNull();
+    expect(durationFromTimes("2026-10-04", "2026-10-04T14:00")).toBeNull();
+    expect(durationFromTimes("", "2026-10-04T14:00")).toBeNull();
+  });
+  it("rejects incomplete datetime with only date or only time", () => {
+    expect(() => serializeLocalTime("2026-10-04")).toThrow("Enter both date and time, or leave blank.");
+    expect(() => serializeLocalTime("T13:00")).toThrow("Enter both date and time, or leave blank.");
   });
 });

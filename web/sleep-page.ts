@@ -2,8 +2,8 @@ import { LitElement, html, nothing } from "lit";
 import { repeat } from "lit/directives/repeat.js";
 import { sleepRecordsApi, type SleepRecord, type SleepSession } from "./api.js";
 import {
-  coverageLabels, defaultMainSleepTimes, draftFromRecord, firstSessionToDate, formatDuration, moveSession, newSession, newSleepDraft,
-  durationValue, previewSessions, removeSession, syncNapDates, typeLabels, validateDraft,
+  combineDateTime, coverageLabels, defaultMainSleepTimes, draftFromRecord, durationFromTimes, firstSessionToDate, formatDuration, moveSession, newSession, newSleepDraft,
+  durationValue, previewSessions, removeSession, splitDateTime, syncNapDates, typeLabels, validateDraft,
   type DurationDraft, type DurationKey, type FieldErrors, type MeasurementsDraft, type SessionDraft, type SleepDraft,
 } from "./sleep-editor.js";
 import type { RecordActions } from "./record-actions.js";
@@ -122,6 +122,20 @@ export class SleepPage extends LitElement {
         change = { ...change, ...defaultMainSleepTimes(toDate) };
       }
     }
+    const current = this.draft.sessions[index];
+    const newStartedAt = change.startedAt !== undefined ? change.startedAt : current?.startedAt ?? "";
+    const newEndedAt = change.endedAt !== undefined ? change.endedAt : current?.endedAt ?? "";
+
+    if ((change.startedAt !== undefined || change.endedAt !== undefined) && change.totalSleepMinutes === undefined) {
+      if (newStartedAt && newEndedAt) {
+        const auto = durationFromTimes(newStartedAt, newEndedAt);
+        if (auto) {
+          change = { ...change, totalSleepMinutes: auto };
+          this.clearError(`sessions.${index}.totalSleepMinutes`);
+        }
+      }
+    }
+
     let sessions = this.draft.sessions.map((session, i) => i === index ? { ...session, ...change } : session);
     if (index === 0 && change.endedAt !== undefined && !this.draft.id) {
       const toDate = change.endedAt.includes("T") ? change.endedAt.slice(0, change.endedAt.indexOf("T")) : "";
@@ -129,6 +143,8 @@ export class SleepPage extends LitElement {
     }
     this.draft = { ...this.draft, sessions };
     if (field) this.clearError(`sessions.${index}.${field}`);
+    if (change.startedAt !== undefined) this.clearError(`sessions.${index}.startedAt`);
+    if (change.endedAt !== undefined) this.clearError(`sessions.${index}.endedAt`);
   }
   private async addSession() {
     const sessionType = this.draft.sessions.length ? "nap" : "main-sleep";
@@ -241,13 +257,54 @@ export class SleepPage extends LitElement {
         ${this.awakeDurationInput(row, (value) => set("awakeMinutes", value), prefix)}
       </div></fieldset>`;
   }
+  private updateSessionDate(index: number, key: "startedAt" | "endedAt", newDate: string) {
+    const session = this.draft.sessions[index];
+    if (!session) return;
+    const { time: currentTime } = splitDateTime(session[key]);
+    const updated = combineDateTime(newDate, currentTime);
+    const change: Partial<SessionDraft> = { [key]: updated };
+
+    if (key === "startedAt" && (index > 0 || session.sessionType === "nap")) {
+      const { time: toTime } = splitDateTime(session.endedAt);
+      change.endedAt = combineDateTime(newDate, toTime);
+    }
+
+    this.setSession(index, change, key);
+  }
+
+  private updateSessionTime(index: number, key: "startedAt" | "endedAt", newTime: string) {
+    const session = this.draft.sessions[index];
+    if (!session) return;
+    const { date: currentDate } = splitDateTime(session[key]);
+    const updated = combineDateTime(currentDate, newTime);
+    this.setSession(index, { [key]: updated }, key);
+  }
+
   private sessionTimes(session: SessionDraft, index: number) {
     const prefix = `sessions.${index}.`;
-    return html`<div class="sleep-fields-grid">${(["startedAt", "endedAt"] as const).map((key) => html`
-      <label>${key === "startedAt" ? "From" : "To"}<input aria-label=${key === "startedAt" ? "From" : "To"} type="datetime-local" step="60" .value=${session[key]}
-        data-field=${`${prefix}${key}`} aria-invalid=${this.errors[`${prefix}${key}`] ? "true" : "false"}
-        aria-describedby=${this.errors[`${prefix}${key}`] ? `sleep-error-${prefix}${key}` : "sleep-time-help"}
-        @input=${(event: InputEvent) => this.setSession(index, { [key]: (event.target as HTMLInputElement).value }, key)} />${this.fieldError(`${prefix}${key}`)}</label>`)}</div>`;
+    return html`<div class="sleep-fields-grid">${(["startedAt", "endedAt"] as const).map((key) => {
+      const { date, time } = splitDateTime(session[key]);
+      const label = key === "startedAt" ? "From" : "To";
+      const field = `${prefix}${key}`;
+      return html`
+        <fieldset class="sleep-time-fieldset">
+          <legend>${label}</legend>
+          <div class="sleep-time-inputs">
+            <label><span class="sr-only">${label} date</span>
+              <input type="date" aria-label="${label} date" .value=${date}
+                data-field=${field} aria-invalid=${this.errors[field] ? "true" : "false"}
+                aria-describedby=${this.errors[field] ? `sleep-error-${field}` : "sleep-time-help"}
+                @input=${(event: InputEvent) => this.updateSessionDate(index, key, (event.target as HTMLInputElement).value)} /></label>
+            <label><span class="sr-only">${label} time</span>
+              <input type="time" step="60" aria-label="${label} time" .value=${time}
+                data-field=${field} aria-invalid=${this.errors[field] ? "true" : "false"}
+                aria-describedby=${this.errors[field] ? `sleep-error-${field}` : "sleep-time-help"}
+                @input=${(event: InputEvent) => this.updateSessionTime(index, key, (event.target as HTMLInputElement).value)} /></label>
+          </div>
+          ${this.fieldError(field)}
+        </fieldset>
+      `;
+    })}</div>`;
   }
   private sessionMetadata(session: SessionDraft, index: number) {
     return html`<div class="sleep-fields-grid">

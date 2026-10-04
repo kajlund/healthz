@@ -97,6 +97,11 @@ h2 { margin: 5px 0 0; font-family: Georgia, serif; font-size: 25px; font-weight:
 .sleep-page input, .sleep-page select, .sleep-page textarea, .sleep-page label, .sleep-page fieldset { min-width: 0; max-width: 100%; }
 .sleep-page .duration-inputs { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto; gap: 5px; }
 .sleep-page .duration-inputs input { padding-inline: 8px; }
+.sleep-time-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.sleep-time-fieldset legend { margin-bottom: 5px; color: #425047; font-size: 12px; font-weight: 750; line-height: 1.3; }
+.sleep-time-inputs { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 8px; }
+.sleep-time-inputs label { margin: 0; }
+.sleep-time-inputs label > input { margin-top: 0; }
 .sleep-page label > .sr-only { margin: 0; }
 .sleep-help { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
 .sleep-optional-details { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
