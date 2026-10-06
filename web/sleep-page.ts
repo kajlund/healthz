@@ -126,8 +126,10 @@ export class SleepPage extends LitElement {
     const newStartedAt = change.startedAt !== undefined ? change.startedAt : current?.startedAt ?? "";
     const newEndedAt = change.endedAt !== undefined ? change.endedAt : current?.endedAt ?? "";
 
+    const isManual = change.manualTotalSleep !== undefined ? change.manualTotalSleep : current?.manualTotalSleep ?? false;
+
     if ((change.startedAt !== undefined || change.endedAt !== undefined) && change.totalSleepMinutes === undefined) {
-      if (newStartedAt && newEndedAt) {
+      if (!isManual && newStartedAt && newEndedAt) {
         const auto = durationFromTimes(newStartedAt, newEndedAt);
         if (auto) {
           change = { ...change, totalSleepMinutes: auto };
@@ -152,6 +154,9 @@ export class SleepPage extends LitElement {
     if (!this.draft.id && sessionType === "main-sleep") {
       const toDate = firstSessionToDate(this.draft);
       Object.assign(session, defaultMainSleepTimes(toDate));
+    } else {
+      session.startedAt = this.draft.sleepDate;
+      session.endedAt = this.draft.sleepDate;
     }
     this.draft = { ...this.draft, sessions: [...this.draft.sessions, session] }; this.errors = {}; this.notice = "Session added.";
     await this.updateComplete;
@@ -319,7 +324,10 @@ export class SleepPage extends LitElement {
     const prefix = `sessions.${index}.`;
     const main = session.sessionType === "main-sleep";
     const total = durationValue(session.totalSleepMinutes);
-    const duration = this.durationInput("Total sleep", "totalSleepMinutes", session, (value) => this.setSession(index, { totalSleepMinutes: value }, "totalSleepMinutes"), prefix);
+    const duration = this.durationInput("Total sleep", "totalSleepMinutes", session, (value) => {
+      const isCleared = value.hours === "" && value.minutes === "";
+      this.setSession(index, { totalSleepMinutes: value, manualTotalSleep: !isCleared }, "totalSleepMinutes");
+    }, prefix);
     const optional = this.optionalMeasurements(session, (key, value) => this.setSession(index, { [key]: value }, key), prefix);
     return html`<section class="sleep-session-card" aria-labelledby=${`${session.key}-heading`}>
       <h3 id=${`${session.key}-heading`} tabindex="-1">${typeLabels[session.sessionType]}${session.label ? ` · ${session.label}` : ""} · Session ${index + 1}${total != null && Number.isFinite(total) ? ` · ${formatDuration(total)}` : ""}</h3>

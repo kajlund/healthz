@@ -54,13 +54,16 @@ describe("Sleep editor drafts", () => {
   it("syncs existing nap dates while preserving times and leaving blank naps untouched", () => {
     const mainSession = { ...newSession("main-sleep"), startedAt: "2026-09-14T23:00", endedAt: "2026-09-15T07:00" };
     const timedNap = { ...newSession("nap"), startedAt: "2026-09-15T13:00", endedAt: "2026-09-15T14:00" };
+    const dateOnlyNap = { ...newSession("nap"), startedAt: "2026-09-15", endedAt: "2026-09-15" };
     const blankNap = { ...newSession("nap"), startedAt: "", endedAt: "" };
-    const synced = syncNapDates([mainSession, timedNap, blankNap], "2026-09-16");
+    const synced = syncNapDates([mainSession, timedNap, dateOnlyNap, blankNap], "2026-09-16");
     expect(synced[0]!.startedAt).toBe("2026-09-14T23:00");
     expect(synced[1]!.startedAt).toBe("2026-09-16T13:00");
     expect(synced[1]!.endedAt).toBe("2026-09-16T14:00");
-    expect(synced[2]!.startedAt).toBe("");
-    expect(synced[2]!.endedAt).toBe("");
+    expect(synced[2]!.startedAt).toBe("2026-09-16");
+    expect(synced[2]!.endedAt).toBe("2026-09-16");
+    expect(synced[3]!.startedAt).toBe("");
+    expect(synced[3]!.endedAt).toBe("");
   });
   it("serializes main sleep plus a duration-only nap without parent aggregates or child IDs", () => {
     const draft = newSleepDraft();

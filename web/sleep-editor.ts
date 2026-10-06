@@ -13,6 +13,7 @@ export type MeasurementsDraft = Record<DurationKey, DurationDraft> & {
 export type SessionDraft = MeasurementsDraft & {
   key: string; sessionType: SleepSessionInput["sessionType"]; label: string; source: string;
   startedAt: string; endedAt: string; originalStartedAt?: string | null; originalEndedAt?: string | null; detailsOpen: boolean;
+  manualTotalSleep?: boolean;
 };
 export interface SleepDraft {
   id: string | null; originalMode: DetailMode; detailMode: DetailMode; sleepDate: string;
@@ -36,6 +37,7 @@ export const measurementDraft = (values: Measurements = {}): MeasurementsDraft =
 let nextKey = 0;
 export const newSession = (sessionType: SessionDraft["sessionType"] = "main-sleep"): SessionDraft => ({
   ...measurementDraft(), key: `sleep-session-${++nextKey}`, sessionType, label: "", source: "", startedAt: "", endedAt: "", detailsOpen: sessionType === "main-sleep",
+  manualTotalSleep: false,
 });
 const pad = (value: number, length = 2) => String(value).padStart(length, "0");
 export const localDateTime = (value: string | Date): string => {
@@ -87,6 +89,7 @@ export const sessionDraft = (session: SleepSession): SessionDraft => ({
   startedAt: session.startedAt ? localDateTime(session.startedAt).slice(0, 16) : "", endedAt: session.endedAt ? localDateTime(session.endedAt).slice(0, 16) : "",
   originalStartedAt: session.startedAt, originalEndedAt: session.endedAt,
   detailsOpen: session.sessionType === "main-sleep" || [session.startedAt, session.endedAt, session.label, session.source, session.awakeCount, session.awakeMinutes, session.deepMinutes, session.lightMinutes, session.remMinutes].some((value) => value != null && value !== ""),
+  manualTotalSleep: true,
 });
 export const defaultMainSleepTimes = (toDate: string) => {
   const fromDate = previousCalendarDay(toDate);
@@ -107,12 +110,12 @@ export const syncNapDates = (sessions: SessionDraft[], toDate: string): SessionD
   if (!/^\d{4}-\d{2}-\d{2}$/.test(toDate)) return sessions;
   return sessions.map((session, index) => {
     if (index === 0 || session.sessionType !== "nap" || (!session.startedAt && !session.endedAt)) return session;
-    const startTime = session.startedAt.includes("T") ? session.startedAt.slice(session.startedAt.indexOf("T")) : "";
-    const endTime = session.endedAt.includes("T") ? session.endedAt.slice(session.endedAt.indexOf("T")) : "";
+    const { time: startTime } = splitDateTime(session.startedAt);
+    const { time: endTime } = splitDateTime(session.endedAt);
     return {
       ...session,
-      startedAt: startTime ? `${toDate}${startTime}` : session.startedAt,
-      endedAt: endTime ? `${toDate}${endTime}` : session.endedAt,
+      startedAt: session.startedAt ? combineDateTime(toDate, startTime) : session.startedAt,
+      endedAt: session.endedAt ? combineDateTime(toDate, endTime) : session.endedAt,
     };
   });
 };
