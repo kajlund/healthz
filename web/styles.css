@@ -33,7 +33,7 @@ button:disabled { cursor: wait; opacity: .62; }
 }
 
 .brand { display: inline-flex; align-items: center; gap: 11px; color: var(--ink); font-weight: 760; font-size: 20px; text-decoration: none; letter-spacing: -.03em; }
-.brand span { width: 34px; height: 34px; display: grid; place-items: center; color: white; background: var(--accent); border-radius: 10px 10px 10px 3px; font-family: Georgia, serif; font-size: 21px; }
+.brand img { display: block; width: 34px; height: 34px; flex-shrink: 0; }
 .header-meta { color: var(--muted); display: flex; align-items: center; gap: 8px; font-size: 13px; }
 .status-dot { width: 7px; height: 7px; background: #4fa176; border-radius: 50%; box-shadow: 0 0 0 4px #e2efe6; }
 .navigation-shell { min-width: 0; align-self: stretch; display: flex; align-items: stretch; }

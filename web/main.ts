@@ -321,7 +321,7 @@ class HealthzApp extends LitElement {
   render() {
     return html`
       <header class="site-header">
-        <a class="brand" href="/" aria-label="Healthz home"><span>H</span>Healthz</a>
+        <a class="brand" href="/" aria-label="Healthz home"><img src="/healthz-icon.svg" width="34" height="34" alt="" />Healthz</a>
         <div class="navigation-shell">
           <button class="menu-toggle" type="button" aria-label="Toggle navigation menu" aria-expanded=${this.mobileMenuOpen ? "true" : "false"} aria-controls="mobile-navigation" @click=${() => (this.mobileMenuOpen = !this.mobileMenuOpen)}><span></span><span></span><span></span></button>
           <nav class="primary-nav" aria-label="Health categories">${navigation.map((item) => html`<a href=${this.categoryDestination(item.category)} aria-current=${this.category === item.category ? "page" : nothing} class=${this.category === item.category ? "active" : ""}>${item.label}</a>`)}</nav>
