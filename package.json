@@ -26,9 +26,19 @@
     "db:migrate": "npm run db:migrate -w @healthz/api --",
     "db:seed:healthcare-tags": "npm run db:seed:healthcare-tags -w @healthz/api --",
     "import:history": "npm run import:history -w @healthz/api --",
-    "import:blood-pressure": "npm run import:blood-pressure -w @healthz/api --"
+    "import:blood-pressure": "npm run import:blood-pressure -w @healthz/api --",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "eslint . --fix --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "concurrently": "^10.0.5"
+    "concurrently": "^10.0.5",
+    "@eslint/js": "10.0.1",
+    "eslint": "10.10.0",
+    "eslint-config-prettier": "10.1.8",
+    "prettier": "3.9.6",
+    "typescript-eslint": "8.69.0",
+    "globals": "14.0.0"
   }
 }

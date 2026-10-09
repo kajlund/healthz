@@ -191,12 +191,8 @@
           "name": "healthcare_event_tags_healthcare_event_id_healthcare_events_id_fk",
           "tableFrom": "healthcare_event_tags",
           "tableTo": "healthcare_events",
-          "columnsFrom": [
-            "healthcare_event_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["healthcare_event_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -204,12 +200,8 @@
           "name": "healthcare_event_tags_healthcare_tag_id_healthcare_tags_id_fk",
           "tableFrom": "healthcare_event_tags",
           "tableTo": "healthcare_tags",
-          "columnsFrom": [
-            "healthcare_tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["healthcare_tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -217,10 +209,7 @@
       "compositePrimaryKeys": {
         "healthcare_event_tags_pk": {
           "name": "healthcare_event_tags_pk",
-          "columns": [
-            "healthcare_event_id",
-            "healthcare_tag_id"
-          ]
+          "columns": ["healthcare_event_id", "healthcare_tag_id"]
         }
       },
       "uniqueConstraints": {},
@@ -942,12 +931,8 @@
           "name": "sleep_sessions_sleep_record_id_sleep_records_id_fk",
           "tableFrom": "sleep_sessions",
           "tableTo": "sleep_records",
-          "columnsFrom": [
-            "sleep_record_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sleep_record_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

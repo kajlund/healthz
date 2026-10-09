@@ -1,18 +1,18 @@
-import type { BloodPressureReading } from "../blood-pressure-readings/repository.js";
-import type { BodyMeasurement } from "../body-measurements/repository.js";
-import type { HealthcareEvent } from "../healthcare-events/repository.js";
-import type { HealthcareTag } from "../healthcare-tags/repository.js";
-import type { PapRecord } from "../pap-records/repository.js";
-import type { SleepRecord } from "../sleep-records/repository.js";
+import type { BloodPressureReading } from '../blood-pressure-readings/repository.js';
+import type { BodyMeasurement } from '../body-measurements/repository.js';
+import type { HealthcareEvent } from '../healthcare-events/repository.js';
+import type { HealthcareTag } from '../healthcare-tags/repository.js';
+import type { PapRecord } from '../pap-records/repository.js';
+import type { SleepRecord } from '../sleep-records/repository.js';
 
 export type TakeoutDataset =
-  | "all"
-  | "body-measurements"
-  | "blood-pressure"
-  | "sleep"
-  | "pap"
-  | "journal-events"
-  | "journal-tags";
+  | 'all'
+  | 'body-measurements'
+  | 'blood-pressure'
+  | 'sleep'
+  | 'pap'
+  | 'journal-events'
+  | 'journal-tags';
 
 export interface TakeoutCounts {
   bodyMeasurements: number;

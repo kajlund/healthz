@@ -1,11 +1,10 @@
-
-import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import { desc } from "drizzle-orm";
-import { db, pool } from "./db/index.js";
-import { bloodPressureReadings } from "./db/schema.js";
-import { parseCsv } from "./history-import/core.js";
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { desc } from 'drizzle-orm';
+import { db, pool } from './db/index.js';
+import { bloodPressureReadings } from './db/schema.js';
+import { parseCsv } from './history-import/core.js';
 
 interface ParsedReading {
   sourceRow: number;
@@ -20,7 +19,7 @@ interface ParsedReading {
 export const cleanDateString = (rawDate: string): string => {
   const trimmed = rawDate.trim();
   // Fix known typo: 2919-12-14 -> 2019-12-14
-  if (trimmed.startsWith("2919-")) {
+  if (trimmed.startsWith('2919-')) {
     return `2019-${trimmed.slice(5)}`;
   }
   return trimmed;
@@ -28,49 +27,61 @@ export const cleanDateString = (rawDate: string): string => {
 
 export const cleanTimeString = (rawTime: string): string => {
   // Remove trailing colons, spaces, etc. E.g. "20:00: " -> "20:00"
-  let trimmed = rawTime.trim().replace(/[:\s]+$/, "");
-  if (!trimmed) return "";
-  const parts = trimmed.split(":");
+  const trimmed = rawTime.trim().replace(/[:\s]+$/, '');
+  if (!trimmed) return '';
+  const parts = trimmed.split(':');
   if (parts.length >= 2) {
-    const hours = parts[0]!.padStart(2, "0");
-    const minutes = parts[1]!.padStart(2, "0");
-    const seconds = parts[2] ? parts[2].padStart(2, "0") : "00";
+    const hours = parts[0]!.padStart(2, '0');
+    const minutes = parts[1]!.padStart(2, '0');
+    const seconds = parts[2] ? parts[2].padStart(2, '0') : '00';
     return `${hours}:${minutes}:${seconds}`;
   }
   return trimmed;
 };
 
-export const addMinutesToTime = (timeStr: string, minutesToAdd: number): string => {
-  const [h = "0", m = "0", s = "0"] = timeStr.split(":");
-  let totalMinutes = Number(h) * 60 + Number(m) + minutesToAdd;
+export const addMinutesToTime = (
+  timeStr: string,
+  minutesToAdd: number,
+): string => {
+  const [h = '0', m = '0', s = '0'] = timeStr.split(':');
+  const totalMinutes = Number(h) * 60 + Number(m) + minutesToAdd;
   const hours = Math.floor(totalMinutes / 60) % 24;
   const mins = totalMinutes % 60;
-  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${s.padStart(2, "0")}`;
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${s.padStart(2, '0')}`;
 };
 
-export const parseBloodPressureCsv = (csvContent: string): {
+export const parseBloodPressureCsv = (
+  csvContent: string,
+): {
   readings: ParsedReading[];
   warnings: string[];
 } => {
   const rows = parseCsv(csvContent);
   if (rows.length < 2) {
-    throw new Error("CSV contains no data rows");
+    throw new Error('CSV contains no data rows');
   }
 
   const header = rows[0]!.map((h) => h.trim().toLowerCase());
-  const expectedCols = ["date", "time", "systolic", "diastolic", "pulse", "notes"];
+  const expectedCols = [
+    'date',
+    'time',
+    'systolic',
+    'diastolic',
+    'pulse',
+    'notes',
+  ];
   for (const col of expectedCols) {
     if (!header.includes(col)) {
       throw new Error(`Missing expected column: ${col}`);
     }
   }
 
-  const colDate = header.indexOf("date");
-  const colTime = header.indexOf("time");
-  const colSys = header.indexOf("systolic");
-  const colDia = header.indexOf("diastolic");
-  const colPulse = header.indexOf("pulse");
-  const colNotes = header.indexOf("notes");
+  const colDate = header.indexOf('date');
+  const colTime = header.indexOf('time');
+  const colSys = header.indexOf('systolic');
+  const colDia = header.indexOf('diastolic');
+  const colPulse = header.indexOf('pulse');
+  const colNotes = header.indexOf('notes');
 
   const readings: ParsedReading[] = [];
   const warnings: string[] = [];
@@ -82,12 +93,12 @@ export const parseBloodPressureCsv = (csvContent: string): {
     const row = rows[index]!;
     const sourceRow = index + 1; // 1-indexed line number in CSV
 
-    const rawDate = row[colDate] ?? "";
-    const rawTime = row[colTime] ?? "";
-    const rawSys = row[colSys] ?? "";
-    const rawDia = row[colDia] ?? "";
-    const rawPulse = row[colPulse] ?? "";
-    const rawNotes = row[colNotes] ?? "";
+    const rawDate = row[colDate] ?? '';
+    const rawTime = row[colTime] ?? '';
+    const rawSys = row[colSys] ?? '';
+    const rawDia = row[colDia] ?? '';
+    const rawPulse = row[colPulse] ?? '';
+    const rawNotes = row[colNotes] ?? '';
 
     const date = cleanDateString(rawDate);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -102,12 +113,16 @@ export const parseBloodPressureCsv = (csvContent: string): {
         // Repeated measurement on the same date: place 1 minute after previous measurement
         time = addMinutesToTime(lastTime, 1);
         timeResolvedFrom = `preceding same-day reading (${lastTime} + 1m)`;
-        warnings.push(`Row ${sourceRow} (${date}): Missing time resolved to ${time} from ${timeResolvedFrom}`);
+        warnings.push(
+          `Row ${sourceRow} (${date}): Missing time resolved to ${time} from ${timeResolvedFrom}`,
+        );
       } else {
         // Standalone untimed measurement: default to 08:00:00
-        time = "08:00:00";
-        timeResolvedFrom = "default 08:00:00";
-        warnings.push(`Row ${sourceRow} (${date}): Missing time resolved to ${time} (default)`);
+        time = '08:00:00';
+        timeResolvedFrom = 'default 08:00:00';
+        warnings.push(
+          `Row ${sourceRow} (${date}): Missing time resolved to ${time} (default)`,
+        );
       }
     }
 
@@ -123,7 +138,9 @@ export const parseBloodPressureCsv = (csvContent: string): {
       throw new Error(`Row ${sourceRow}: Invalid diastolic value '${rawDia}'`);
     }
     if (systolic <= diastolic) {
-      throw new Error(`Row ${sourceRow}: Systolic (${systolic}) must be greater than diastolic (${diastolic})`);
+      throw new Error(
+        `Row ${sourceRow}: Systolic (${systolic}) must be greater than diastolic (${diastolic})`,
+      );
     }
 
     let pulse: number | null = null;
@@ -139,8 +156,8 @@ export const parseBloodPressureCsv = (csvContent: string): {
     const notes = trimmedNotes.length > 0 ? trimmedNotes : null;
 
     // Construct local timestamp in local timezone
-    const [yearStr, monthStr, dayStr] = date.split("-");
-    const [hourStr, minStr, secStr = "0"] = time.split(":");
+    const [yearStr, monthStr, dayStr] = date.split('-');
+    const [hourStr, minStr, secStr = '0'] = time.split(':');
     const localDate = new Date(
       Number(yearStr),
       Number(monthStr) - 1,
@@ -151,7 +168,9 @@ export const parseBloodPressureCsv = (csvContent: string): {
     );
 
     if (isNaN(localDate.getTime())) {
-      throw new Error(`Row ${sourceRow}: Unable to parse timestamp ${date} ${time}`);
+      throw new Error(
+        `Row ${sourceRow}: Unable to parse timestamp ${date} ${time}`,
+      );
     }
 
     readings.push({
@@ -170,15 +189,19 @@ export const parseBloodPressureCsv = (csvContent: string): {
 
 const main = async () => {
   const args = process.argv.slice(2);
-  const apply = args.includes("--apply");
-  const dryRun = args.includes("--dry-run") || !apply;
-  const filePathArg = args.find((arg) => !arg.startsWith("--"));
-  const inputPath = resolve(process.env.INIT_CWD || process.cwd(), filePathArg ?? "BloodPressureTracking.csv");
+  const apply = args.includes('--apply');
+  const filePathArg = args.find((arg) => !arg.startsWith('--'));
+  const inputPath = resolve(
+    process.env.INIT_CWD || process.cwd(),
+    filePathArg ?? 'BloodPressureTracking.csv',
+  );
 
-  console.log(`\n=== Blood Pressure CSV Import (${apply ? "APPLY" : "DRY RUN"}) ===`);
+  console.log(
+    `\n=== Blood Pressure CSV Import (${apply ? 'APPLY' : 'DRY RUN'}) ===`,
+  );
   console.log(`Input file: ${inputPath}`);
 
-  const content = await readFile(inputPath, "utf8");
+  const content = await readFile(inputPath, 'utf8');
   const { readings, warnings } = parseBloodPressureCsv(content);
 
   console.log(`Total rows parsed from CSV: ${readings.length}`);
@@ -196,7 +219,10 @@ const main = async () => {
 
   const toInsert: ParsedReading[] = [];
   const exactDuplicates: ParsedReading[] = [];
-  const timeCollisions: Array<{ incoming: ParsedReading; existing: typeof existing[number] }> = [];
+  const timeCollisions: Array<{
+    incoming: ParsedReading;
+    existing: (typeof existing)[number];
+  }> = [];
 
   for (const reading of readings) {
     const timeMs = reading.measuredAt.getTime();
@@ -218,34 +244,46 @@ const main = async () => {
 
   console.log(`New readings to insert: ${toInsert.length}`);
   console.log(`Exact duplicates already in DB: ${exactDuplicates.length}`);
-  console.log(`Time collisions with differing values: ${timeCollisions.length}`);
+  console.log(
+    `Time collisions with differing values: ${timeCollisions.length}`,
+  );
 
   if (timeCollisions.length > 0) {
-    console.error("Collision details:", timeCollisions);
-    throw new Error("Aborting due to timestamp collisions with different values.");
+    console.error('Collision details:', timeCollisions);
+    throw new Error(
+      'Aborting due to timestamp collisions with different values.',
+    );
   }
 
   if (toInsert.length > 0) {
     const dates = toInsert.map((r) => r.measuredAt.getTime());
     const minDate = new Date(Math.min(...dates));
     const maxDate = new Date(Math.max(...dates));
-    console.log(`Date range of new entries: ${minDate.toISOString()} to ${maxDate.toISOString()}`);
+    console.log(
+      `Date range of new entries: ${minDate.toISOString()} to ${maxDate.toISOString()}`,
+    );
     console.log(`Earliest local: ${minDate.toLocaleString()}`);
     console.log(`Latest local:   ${maxDate.toLocaleString()}`);
 
-    console.log("\nSample records to insert (first 3):");
+    console.log('\nSample records to insert (first 3):');
     for (const r of toInsert.slice(0, 3)) {
-      console.log(`  Row ${r.sourceRow}: ${r.measuredAt.toISOString()} (${r.measuredAt.toLocaleString()}) -> ${r.systolic}/${r.diastolic} mmHg, pulse=${r.pulse}, notes=${r.notes}`);
+      console.log(
+        `  Row ${r.sourceRow}: ${r.measuredAt.toISOString()} (${r.measuredAt.toLocaleString()}) -> ${r.systolic}/${r.diastolic} mmHg, pulse=${r.pulse}, notes=${r.notes}`,
+      );
     }
-    console.log("\nSample records to insert (last 3):");
+    console.log('\nSample records to insert (last 3):');
     for (const r of toInsert.slice(-3)) {
-      console.log(`  Row ${r.sourceRow}: ${r.measuredAt.toISOString()} (${r.measuredAt.toLocaleString()}) -> ${r.systolic}/${r.diastolic} mmHg, pulse=${r.pulse}, notes=${r.notes}`);
+      console.log(
+        `  Row ${r.sourceRow}: ${r.measuredAt.toISOString()} (${r.measuredAt.toLocaleString()}) -> ${r.systolic}/${r.diastolic} mmHg, pulse=${r.pulse}, notes=${r.notes}`,
+      );
     }
   }
 
   if (apply) {
     if (toInsert.length === 0) {
-      console.log("\nNothing to insert. All records already exist in the database.");
+      console.log(
+        '\nNothing to insert. All records already exist in the database.',
+      );
       return;
     }
 
@@ -262,7 +300,7 @@ const main = async () => {
             diastolic: r.diastolic,
             pulse: r.pulse,
             notes: r.notes,
-          }))
+          })),
         );
       }
     });
@@ -270,19 +308,24 @@ const main = async () => {
     // Verify insertion
     const totalAfter = await db.select().from(bloodPressureReadings);
     console.log(`\nSUCCESS: Successfully inserted ${toInsert.length} records.`);
-    console.log(`Total blood pressure readings now in database: ${totalAfter.length}`);
+    console.log(
+      `Total blood pressure readings now in database: ${totalAfter.length}`,
+    );
   } else {
-    console.log("\nDRY RUN complete. Run with --apply to commit these records to the database.");
+    console.log(
+      '\nDRY RUN complete. Run with --apply to commit these records to the database.',
+    );
   }
 };
 
-const isDirectRun =
-  process.argv[1] ? resolve(process.argv[1]) === fileURLToPath(import.meta.url) : false;
+const isDirectRun = process.argv[1]
+  ? resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  : false;
 
 if (isDirectRun) {
   main()
     .catch((err) => {
-      console.error("Import failed:", err);
+      console.error('Import failed:', err);
       process.exitCode = 1;
     })
     .finally(() => pool.end());

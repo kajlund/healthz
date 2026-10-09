@@ -1,10 +1,10 @@
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, lte } from 'drizzle-orm';
 
-import { db } from "../db/index.js";
-import { papRecords } from "../db/schema.js";
-import { PapRecordConflictError } from "../errors.js";
-import type { DateRangeQuery } from "../common/filters.js";
-import type { PapRecordInput } from "./schemas.js";
+import { db } from '../db/index.js';
+import { papRecords } from '../db/schema.js';
+import { PapRecordConflictError } from '../errors.js';
+import type { DateRangeQuery } from '../common/filters.js';
+import type { PapRecordInput } from './schemas.js';
 
 export type PapRecord = typeof papRecords.$inferSelect;
 
@@ -17,9 +17,9 @@ export interface PapRecordRepository {
 }
 
 const isUniqueViolation = (error: unknown): boolean => {
-  if (typeof error !== "object" || error === null) return false;
-  if ("code" in error && error.code === "23505") return true;
-  return "cause" in error && isUniqueViolation(error.cause);
+  if (typeof error !== 'object' || error === null) return false;
+  if ('code' in error && error.code === '23505') return true;
+  return 'cause' in error && isUniqueViolation(error.cause);
 };
 
 export const valuesFromPapInput = (input: PapRecordInput) => ({
@@ -35,7 +35,10 @@ export const valuesFromPapInput = (input: PapRecordInput) => ({
 export const papRecordRepository: PapRecordRepository = {
   async create(input) {
     try {
-      const [record] = await db.insert(papRecords).values(valuesFromPapInput(input)).returning();
+      const [record] = await db
+        .insert(papRecords)
+        .values(valuesFromPapInput(input))
+        .returning();
       return record!;
     } catch (error) {
       if (isUniqueViolation(error)) throw new PapRecordConflictError();
@@ -47,10 +50,18 @@ export const papRecordRepository: PapRecordRepository = {
     if (query?.from) conditions.push(gte(papRecords.therapyDate, query.from));
     if (query?.to) conditions.push(lte(papRecords.therapyDate, query.to));
     const where = conditions.length ? and(...conditions) : undefined;
-    return db.select().from(papRecords).where(where).orderBy(desc(papRecords.therapyDate));
+    return db
+      .select()
+      .from(papRecords)
+      .where(where)
+      .orderBy(desc(papRecords.therapyDate));
   },
   async findById(id) {
-    const [record] = await db.select().from(papRecords).where(eq(papRecords.id, id)).limit(1);
+    const [record] = await db
+      .select()
+      .from(papRecords)
+      .where(eq(papRecords.id, id))
+      .limit(1);
     return record;
   },
   async update(id, input) {

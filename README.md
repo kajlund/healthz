@@ -415,3 +415,16 @@ Migration `0008_remove_stored_summaries.sql` permanently drops the obsolete mont
 There is no application-wide backup import/export format. The history importer continues to accept detailed PAP CSV and OHealth SQLite exports; stored monthly summary sections are unsupported and cannot be recreated through the removed REST routes. `YEAR_AGGREGATED.CSV` remains ignored.
 
 The legacy Sleep API/database value `detailMode: "summary"` denotes measurements for a specific night, not a stored monthly average. It remains for compatibility with existing detailed nightly records and their editing behavior.
+
+## Linting and formatting
+
+All Dreamquest projects use the same ESLint and Prettier configuration, based on Activus. Run these commands from the repository root:
+
+```sh
+npm run lint
+npm run lint:fix
+npm run format
+npm run format:check
+```
+
+ESLint checks supported JavaScript and TypeScript files and treats warnings as failures. Prettier formats its supported source, configuration, and documentation files with single quotes, trailing commas, and LF line endings. Dependencies, generated builds and test output, local data, editor settings, archived artifacts, and dependency lockfiles are excluded. SQL and Nunjucks templates are outside the installed tools' supported file types.
