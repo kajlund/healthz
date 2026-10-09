@@ -7,47 +7,28 @@
   "engines": {
     "node": ">=22"
   },
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
     "dev": "concurrently -k -n api,web -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",
-    "dev:api": "tsx watch src/server.ts",
-    "dev:web": "wait-on http-get://localhost:3000/health && vite",
-    "build": "npm run build:api && npm run build:web",
-    "build:api": "tsc -p tsconfig.build.json",
-    "build:web": "vite build",
-    "start": "node dist/server.js",
-    "test": "vitest run",
-    "test:browser": "playwright test",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json --noEmit",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
-    "db:seed:healthcare-tags": "tsx src/seed-healthcare-tags.ts",
-    "import:history": "tsx src/import-history.ts",
-    "import:blood-pressure": "tsx src/import-blood-pressure.ts"
-  },
-  "dependencies": {
-    "chart.js": "^4.5.1",
-    "dotenv": "^17.2.2",
-    "drizzle-orm": "^0.45.2",
-    "express": "^5.1.0",
-    "lit": "^3.3.3",
-    "pg": "^8.16.3",
-    "pino": "^9.9.4",
-    "zod": "^4.1.5"
+    "dev:api": "npm run dev -w @healthz/api",
+    "dev:web": "npm run dev -w @healthz/web",
+    "build": "npm run build:web && npm run build:api",
+    "build:api": "npm run build -w @healthz/api",
+    "build:web": "npm run build -w @healthz/web",
+    "start": "npm start -w @healthz/api",
+    "test": "npm test --workspaces --if-present",
+    "test:browser": "npm run test:browser -w @healthz/web --",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "verify:start": "node scripts/verify-start.mjs",
+    "db:generate": "npm run db:generate -w @healthz/api --",
+    "db:migrate": "npm run db:migrate -w @healthz/api --",
+    "db:seed:healthcare-tags": "npm run db:seed:healthcare-tags -w @healthz/api --",
+    "import:history": "npm run import:history -w @healthz/api --",
+    "import:blood-pressure": "npm run import:blood-pressure -w @healthz/api --"
   },
   "devDependencies": {
-    "@playwright/test": "1.63.0",
-    "@types/express": "^5.0.3",
-    "@types/node": "^24.3.0",
-    "@types/pg": "^8.15.5",
-    "@types/supertest": "^6.0.3",
-    "concurrently": "^10.0.5",
-    "drizzle-kit": "^0.31.10",
-    "pino-pretty": "^13.1.3",
-    "supertest": "^7.1.4",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2",
-    "vite": "^7.3.6",
-    "vitest": "^3.2.4",
-    "wait-on": "^9.1.0"
+    "concurrently": "^10.0.5"
   }
 }

@@ -7,3 +7,5 @@ playwright-report
 *.log
 .vite
 data/*
+
+.verification/

@@ -1,0 +1,26 @@
+{
+  "name": "@healthz/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test:browser": "playwright test",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1",
+    "lit": "^3.3.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.3.6",
+    "vitest": "^3.2.4"
+  }
+}

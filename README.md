@@ -2,6 +2,15 @@
 
 A personal health tracking application built with Lit, TypeScript, Express, PostgreSQL, and Drizzle ORM.
 
+The npm workspace layout matches the other Dreamquest apps:
+
+- `apps/api`: Express API, API tests, database schema, Drizzle migrations, and import tools (`@healthz/api`).
+- `apps/web`: Lit frontend, public assets, frontend tests, and browser tests (`@healthz/web`).
+- `tsconfig.base.json`: shared TypeScript settings.
+- Root `package.json` and `package-lock.json`: commands and dependency installation for both workspaces.
+
+Keep `.env` and local import files in the repository root. API configuration and Vite both load the root `.env`; shell/service environment variables take precedence. Existing `PORT`, `DATABASE_URL`, `NODE_ENV`, and `LOG_LEVEL` settings continue to work.
+
 ## Requirements
 
 - Node.js 22 or newer
@@ -24,8 +33,9 @@ The root route is the Dashboard. Its optional browser-local reference month is s
 - `npm run dev` - run the API and Vite frontend together
 - `npm run dev:api` - run only the API with automatic restarts
 - `npm run dev:web` - run only the Vite frontend
-- `npm run build` - build the API and frontend into `dist/`
+- `npm run build` - build the API into `apps/api/dist/` and frontend into `apps/web/dist/`
 - `npm start` - serve the production API and built frontend
+- `npm run verify:start` - check the compiled root start command, `/health`, frontend, and bundled assets using a dummy database URL
 - `npm test` - run tests
 - `npm run test:browser` - run Sleep UI tests in installed Google Chrome with synthetic API responses
 - `npm run typecheck` - check TypeScript without emitting files
@@ -130,14 +140,35 @@ Example request body for create and update:
 
 ## Production
 
-Build both applications, then start Express:
+Run deployment commands from the repository root. Build with development tools
+installed, then remove them if desired and start Express:
 
 ```sh
+npm ci --include=dev
 npm run build
+npm prune --omit=dev
 npm start
 ```
 
-Express serves the generated frontend from `dist/public` and continues to handle all `/api` routes.
+Express serves the generated frontend from `apps/web/dist` and continues to handle all `/api` routes.
+
+Set `NODE_ENV=production` and keep your existing `PORT` and `DATABASE_URL` in
+the root `.env` or service environment. The existing `/health` probe returns
+HTTP 200 JSON without querying the database. A service running `npm start` from
+the repository root needs no command change; services launching Node directly
+must use `apps/api/dist/server.js`.
+
+Database migrations now live in `apps/api/drizzle`; their SQL and history are
+unchanged. Continue running `npm run db:migrate` explicitly from the root.
+Historical import paths such as `./data/SLEEP_RECORD.csv` still resolve from
+the directory where you invoked npm.
+
+Run `npm run verify:start` after building to test the actual start command,
+health probe, frontend, and assets without connecting to your real database.
+To verify a separate production-only installation, run
+`npm run verify:start -- /path/to/deployment` from this checkout. Deploy the
+root package files, both workspace package files, and the `apps/api/dist`,
+`apps/api/drizzle`, and `apps/web/dist` directories in that layout.
 
 `notes` may be omitted or set to `null`. Validation, missing-resource, and date-conflict errors use this shape:
 
