@@ -6,6 +6,10 @@ import type {
   SleepReport,
 } from './types.js';
 import { effectivePapHealthDate } from '../pap-records/date.js';
+import {
+  canonicalSleepSource,
+  sleepMetricDefinitions,
+} from '../sleep-records/metrics.js';
 import { stageCoverage } from '../sleep-records/service.js';
 
 const round = (value: number, decimals: number) =>
@@ -115,7 +119,48 @@ export const calculateMonthlyReports = (
     const coverage = sleepDaily.map(
       (item) => item.stageCoverage ?? stageCoverage([item]),
     );
+    const sources = [
+      ...new Set(sleepDaily.map((r) => canonicalSleepSource(r.source))),
+    ];
+    const scoresBySource = Object.fromEntries(
+      sources.map((source) => [
+        source,
+        knownMetric(
+          sleepDaily
+            .filter((r) => canonicalSleepSource(r.source) === source)
+            .map((r) => r.sleepScore),
+          2,
+        ),
+      ]),
+    );
+    const measurementsBySource = Object.fromEntries(
+      sources.map((source) => [
+        source,
+        Object.fromEntries(
+          sleepMetricDefinitions
+            .filter((d) => d.key !== 'sleepScore')
+            .map((d) => [
+              d.key,
+              knownMetric(
+                sleepDaily
+                  .filter((r) => canonicalSleepSource(r.source) === source)
+                  .map(
+                    (r) =>
+                      (r as unknown as Record<string, number | null>)[d.key] ??
+                      (r.measurements as Record<string, number> | undefined)?.[
+                        d.key
+                      ] ??
+                      null,
+                  ),
+                2,
+              ),
+            ]),
+        ),
+      ]),
+    );
     const sleep: SleepReport = {
+      scoresBySource,
+      measurementsBySource,
       dailyRecordCount: sleepDaily.length,
       averageAwakeCount: dailyMetric(
         sleepDaily.flatMap((item) =>
@@ -148,10 +193,8 @@ export const calculateMonthlyReports = (
         sleepDaily.map((item) => item.remMinutes),
         0,
       ),
-      averageSleepScore: knownMetric(
-        sleepDaily.map((item) => item.sleepScore),
-        2,
-      ),
+      averageSleepScore:
+        sources.length === 1 ? scoresBySource[sources[0]!]! : none(),
     };
     const papDaily = data.papRecords.filter(
       (item) => byMonth(effectivePapHealthDate(item)) === month,

@@ -18,7 +18,6 @@ import {
   syncNapDates,
   validateDraft,
 } from '../src/sleep-editor.js';
-import { previousCalendarDay } from '../src/pap-date.js';
 import type { SleepRecord } from '../src/api.js';
 
 const record: SleepRecord = {
@@ -53,6 +52,19 @@ const main = () => ({
 afterEach(() => vi.unstubAllEnvs());
 
 describe('Sleep editor drafts', () => {
+  it('keeps blank extended measurements absent and preserves zero and hidden saved values', () => {
+    const draft = newSleepDraft();
+    draft.source = 'garmin-vivofit-5';
+    draft.summary.totalSleepMinutes = durationDraft(420);
+    draft.measurements = { averageSpo2: '', bodyBatteryChange: '0' };
+    expect(validateDraft(draft).input?.measurements).toEqual({
+      bodyBatteryChange: 0,
+    });
+    expect(
+      draftFromRecord({ ...record, measurements: { averageSpo2: 97 } })
+        .measurements,
+    ).toEqual({ averageSpo2: '97' });
+  });
   it('keeps existing summaries editable and preserves unknown versus zero awakenings', () => {
     const draft = draftFromRecord(record);
     expect(draft.detailMode).toBe('summary');
@@ -71,35 +83,18 @@ describe('Sleep editor drafts', () => {
     });
     expect(record.awakeCount).toBeNull();
   });
-  it('starts with one blank expanded Main sleep session and preserves summaries', () => {
-    const draft = newSleepDraft();
-    expect(draft.detailMode).toBe('sessions');
-    expect(draft.sessions).toHaveLength(1);
-    expect(draft.sessions[0]).toMatchObject({
-      sessionType: 'main-sleep',
-      detailsOpen: true,
-      totalSleepMinutes: durationDraft(null),
-    });
-    expect(draftFromRecord(record).sessions).toEqual([]);
+  it('starts with a quick overnight summary without fabricated sessions', () => {
+    const draft = newSleepDraft('2026-10-18');
+    expect(draft.detailMode).toBe('summary');
+    expect(draft.totalScope).toBe('overnight');
+    expect(draft.sessions).toEqual([]);
+    expect(validateDraft(draft).errors.totalSleepMinutes).toBeTruthy();
     expect(draftFromRecord(record).detailMode).toBe('summary');
-    expect(
-      validateDraft(draft).errors['sessions.0.totalSleepMinutes'],
-    ).toBeTruthy();
-  });
-  it('defaults From to Sleep date - 1 day and To to Sleep date when adding sleep entries', () => {
-    const draft = newSleepDraft();
-    const today = draft.sleepDate;
-    const yesterday = previousCalendarDay(today);
-    expect(draft.sessions[0]!.startedAt).toBe(`${yesterday}T23:00`);
-    expect(draft.sessions[0]!.endedAt).toBe(`${today}T07:00`);
-
-    const customDateDraft = newSleepDraft('2026-08-15');
-    expect(customDateDraft.sessions[0]!.startedAt).toBe('2026-08-14T23:00');
-    expect(customDateDraft.sessions[0]!.endedAt).toBe('2026-08-15T07:00');
   });
   it('determines the To date of the first session with a fallback to sleepDate', () => {
     const draft = newSleepDraft('2026-09-15');
     expect(firstSessionToDate(draft)).toBe('2026-09-15');
+    draft.sessions = [newSession()];
     draft.sessions[0]!.endedAt = '2026-09-16T08:00';
     expect(firstSessionToDate(draft)).toBe('2026-09-16');
     draft.sessions[0]!.endedAt = '';
@@ -140,6 +135,8 @@ describe('Sleep editor drafts', () => {
   });
   it('serializes main sleep plus a duration-only nap without parent aggregates or child IDs', () => {
     const draft = newSleepDraft();
+    draft.detailMode = 'sessions';
+    draft.totalScope = 'legacy-all';
     draft.sessions = [
       main(),
       { ...newSession('nap'), totalSleepMinutes: durationDraft(40) },
@@ -217,6 +214,7 @@ describe('Sleep editor drafts', () => {
   });
   it('reports field-specific errors for optional details and cross-midnight end ordering', () => {
     const draft = newSleepDraft();
+    draft.detailMode = 'sessions';
     draft.sessions = [
       {
         ...main(),
@@ -233,6 +231,7 @@ describe('Sleep editor drafts', () => {
   it('serializes local cross-midnight times as instants without changing sleepDate or duration', () => {
     vi.stubEnv('TZ', 'Europe/Helsinki');
     const draft = newSleepDraft();
+    draft.detailMode = 'sessions';
     draft.sleepDate = '2026-09-16';
     draft.sessions = [
       { ...main(), startedAt: '2026-09-15T23:00', endedAt: '2026-09-16T07:00' },
@@ -265,37 +264,46 @@ describe('Sleep editor drafts', () => {
     );
     expect(serializeLocalTime('')).toBeNull();
   });
-  it('enters awakeMinutes in minutes only and validates correctly', () => {
+  it('edits awake duration as hours and minutes while preserving blank, zero and existing values', () => {
     const draft = newSleepDraft();
-    expect(draft.summary.awakeMinutes).toBe('');
-    expect(draft.sessions[0]!.awakeMinutes).toBe('');
+    expect(draft.summary.awakeMinutes).toEqual(durationDraft(null));
+    expect(newSession().awakeMinutes).toEqual(durationDraft(null));
+    expect(draftFromRecord(record).summary.awakeMinutes).toEqual(
+      durationDraft(18),
+    );
 
-    // Number of minutes in summary mode
+    // Hours and minutes in summary mode serialize to total minutes.
     draft.detailMode = 'summary';
     draft.summary.totalSleepMinutes = { hours: '7', minutes: '0' };
-    draft.summary.awakeMinutes = '45';
+    expect(validateDraft(draft).input).toMatchObject({ awakeMinutes: null });
+    draft.summary.awakeMinutes = { hours: '0', minutes: '' };
+    expect(validateDraft(draft).input).toMatchObject({ awakeMinutes: 0 });
+    draft.summary.awakeMinutes = { hours: '1', minutes: '45' };
     expect(validateDraft(draft).input).toMatchObject({
       totalSleepMinutes: 420,
-      awakeMinutes: 45,
+      awakeMinutes: 105,
     });
 
     // Negative minutes rejected
-    draft.summary.awakeMinutes = '-5';
+    draft.summary.awakeMinutes = { hours: '', minutes: '-5' };
+    expect(validateDraft(draft).errors['awakeMinutes']).toBeTruthy();
+    draft.summary.awakeMinutes = { hours: '1', minutes: '60' };
     expect(validateDraft(draft).errors['awakeMinutes']).toBeTruthy();
 
     // Minutes exceeding 24 hours in summary mode rejected
-    draft.summary.awakeMinutes = '1441';
+    draft.summary.awakeMinutes = { hours: '24', minutes: '1' };
     expect(validateDraft(draft).errors['awakeMinutes']).toBeTruthy();
 
     // In session mode
     draft.detailMode = 'sessions';
+    draft.sessions = [newSession()];
     draft.sessions[0]!.totalSleepMinutes = { hours: '7', minutes: '0' };
-    draft.sessions[0]!.awakeMinutes = '30';
+    draft.sessions[0]!.awakeMinutes = { hours: '1', minutes: '30' };
     const res = validateDraft(draft);
     expect(res.errors).toEqual({});
     if (res.input?.detailMode !== 'sessions')
       throw new Error('Expected sessions');
-    expect(res.input.sessions[0]).toMatchObject({ awakeMinutes: 30 });
+    expect(res.input.sessions[0]).toMatchObject({ awakeMinutes: 90 });
   });
   it('splits and combines datetime-local strings correctly', () => {
     expect(splitDateTime('2026-10-04T13:00')).toEqual({

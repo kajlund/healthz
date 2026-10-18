@@ -13,14 +13,12 @@ export const sleepStageCoverageSql = sql<StageCoverage>`case
     when ${sleepRecords.lightMinutes} is not null and ${sleepRecords.deepMinutes} is not null and ${sleepRecords.remMinutes} is not null then 'complete'
     when ${sleepRecords.lightMinutes} is not null or ${sleepRecords.deepMinutes} is not null or ${sleepRecords.remMinutes} is not null then 'partial'
     else 'none' end
-  when exists (select 1 from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId})
-    and not exists (select 1 from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId}
+  when exists (select 1 from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId} and (${sleepRecords.totalScope} = 'legacy-all' or ${sleepSessions.sessionType} = 'main-sleep'))
+    and not exists (select 1 from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId} and (${sleepRecords.totalScope} = 'legacy-all' or ${sleepSessions.sessionType} = 'main-sleep')
       and (${sleepSessions.lightMinutes} is null or ${sleepSessions.deepMinutes} is null or ${sleepSessions.remMinutes} is null)) then 'complete'
-  when exists (select 1 from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId}
+  when exists (select 1 from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId} and (${sleepRecords.totalScope} = 'legacy-all' or ${sleepSessions.sessionType} = 'main-sleep')
     and (${sleepSessions.lightMinutes} is not null or ${sleepSessions.deepMinutes} is not null or ${sleepSessions.remMinutes} is not null)) then 'partial'
   else 'none' end`;
 
-export const sleepSessionCountSql = sql<number>`case when ${sleepRecords.detailMode} = 'sessions'
-  then (select count(*)::integer from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId}) else 0 end`;
-export const sleepNapCountSql = sql<number>`case when ${sleepRecords.detailMode} = 'sessions'
-  then (select count(*)::integer from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId} and ${sleepSessions.sessionType} = 'nap') else 0 end`;
+export const sleepSessionCountSql = sql<number>`(select count(*)::integer from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId})`;
+export const sleepNapCountSql = sql<number>`(select count(*)::integer from ${sleepSessions} where ${sleepSessions.sleepRecordId} = ${parentId} and ${sleepSessions.sessionType} = 'nap')`;

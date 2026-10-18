@@ -1,3 +1,4 @@
+import { createSleepSettingsRouter } from './sleep-records/settings.js';
 import express, { type ErrorRequestHandler } from 'express';
 import { ZodError } from 'zod';
 import { webDirectory } from './config/paths.js';
@@ -44,6 +45,7 @@ export const createApp = (
   const app = express();
 
   app.use(express.json());
+  app.use('/api/sleep-metric-settings', createSleepSettingsRouter());
 
   app.get('/health', (_request, response) => {
     response.json({ status: 'ok' });

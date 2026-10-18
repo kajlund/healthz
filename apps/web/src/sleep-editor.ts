@@ -13,11 +13,14 @@ import { previousCalendarDay } from './pap-date.js';
 
 export type DetailMode = 'summary' | 'sessions';
 export type DurationKey =
-  'totalSleepMinutes' | 'lightMinutes' | 'deepMinutes' | 'remMinutes';
+  | 'totalSleepMinutes'
+  | 'lightMinutes'
+  | 'deepMinutes'
+  | 'remMinutes'
+  | 'awakeMinutes';
 export type DurationDraft = { hours: string; minutes: string };
 export type MeasurementsDraft = Record<DurationKey, DurationDraft> & {
   awakeCount: string;
-  awakeMinutes: string;
 };
 export type SessionDraft = MeasurementsDraft & {
   key: string;
@@ -33,6 +36,8 @@ export type SessionDraft = MeasurementsDraft & {
 };
 export interface SleepDraft {
   id: string | null;
+  totalScope?: 'legacy-all' | 'overnight';
+  measurements?: Record<string, string>;
   originalMode: DetailMode;
   detailMode: DetailMode;
   sleepDate: string;
@@ -47,6 +52,7 @@ export const durationKeys: DurationKey[] = [
   'lightMinutes',
   'deepMinutes',
   'remMinutes',
+  'awakeMinutes',
 ];
 export const coverageLabels = {
   complete: 'Complete stage data',
@@ -68,7 +74,6 @@ export const durationDraft = (
     : { hours: String(Math.floor(value / 60)), minutes: String(value % 60) };
 type Measurements = { [K in DurationKey]?: number | null } & {
   awakeCount?: number | null;
-  awakeMinutes?: number | null;
 };
 export const measurementDraft = (
   values: Measurements = {},
@@ -78,7 +83,7 @@ export const measurementDraft = (
   deepMinutes: durationDraft(values.deepMinutes),
   remMinutes: durationDraft(values.remMinutes),
   awakeCount: values.awakeCount == null ? '' : String(values.awakeCount),
-  awakeMinutes: values.awakeMinutes == null ? '' : String(values.awakeMinutes),
+  awakeMinutes: durationDraft(values.awakeMinutes),
 });
 let nextKey = 0;
 export const newSession = (
@@ -229,9 +234,8 @@ export const syncNapDates = (
   toDate: string,
 ): SessionDraft[] => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(toDate)) return sessions;
-  return sessions.map((session, index) => {
+  return sessions.map((session) => {
     if (
-      index === 0 ||
       session.sessionType !== 'nap' ||
       (!session.startedAt && !session.endedAt)
     )
@@ -253,16 +257,13 @@ export const newSleepDraft = (initialDate?: string): SleepDraft => {
   const sleepDate = initialDate ?? localDateTime(new Date()).slice(0, 10);
   return {
     id: null,
-    originalMode: 'sessions',
-    detailMode: 'sessions',
+    originalMode: 'summary',
+    detailMode: 'summary',
+    totalScope: 'overnight',
+    measurements: {},
     sleepDate,
     summary: measurementDraft(),
-    sessions: [
-      {
-        ...newSession('main-sleep'),
-        ...defaultMainSleepTimes(sleepDate),
-      },
-    ],
+    sessions: [],
     sleepScore: '',
     source: 'manual',
     notes: '',
@@ -270,6 +271,10 @@ export const newSleepDraft = (initialDate?: string): SleepDraft => {
 };
 export const draftFromRecord = (record: SleepRecord): SleepDraft => ({
   id: record.id,
+  totalScope: record.totalScope ?? 'legacy-all',
+  measurements: Object.fromEntries(
+    Object.entries(record.measurements ?? {}).map(([k, v]) => [k, String(v)]),
+  ),
   originalMode: record.detailMode,
   detailMode: record.detailMode,
   sleepDate: record.sleepDate,
@@ -281,11 +286,6 @@ export const draftFromRecord = (record: SleepRecord): SleepDraft => ({
 });
 export const optionalInteger = (value: string): number | null =>
   value.trim() === '' ? null : Number(value);
-export const optionalMinutes = (value: string): number | null => {
-  if (value.trim() === '') return null;
-  const n = Number(value);
-  return Number.isInteger(n) && n >= 0 ? n : NaN;
-};
 export const durationValue = ({
   hours,
   minutes,
@@ -303,7 +303,7 @@ export const durationValue = ({
 };
 const measurements = (draft: MeasurementsDraft) => ({
   totalSleepMinutes: durationValue(draft.totalSleepMinutes),
-  awakeMinutes: optionalMinutes(draft.awakeMinutes),
+  awakeMinutes: durationValue(draft.awakeMinutes),
   awakeCount: optionalInteger(draft.awakeCount),
   lightMinutes: durationValue(draft.lightMinutes),
   deepMinutes: durationValue(draft.deepMinutes),
@@ -314,7 +314,12 @@ const known = (value: number | null) =>
   Number.isInteger(value) &&
   value >= 0 &&
   value <= 2_147_483_647;
-export const previewSessions = (sessions: SessionDraft[]) => {
+export const previewSessions = (
+  sessions: SessionDraft[],
+  overnight = false,
+) => {
+  if (overnight)
+    sessions = sessions.filter((s) => s.sessionType === 'main-sleep');
   const rows = sessions.map((session, sortOrder) => {
     const values = measurements(session);
     return {
@@ -385,21 +390,31 @@ export const validateDraft = (
             : `Enter a duration from 0 to ${max} minutes, or leave blank. Minutes must be 0–59.`;
       }
     }
-    const max = draft.detailMode === 'summary' ? 1440 : 2_147_483_647;
-    if (
-      values.awakeMinutes !== null &&
-      (!known(values.awakeMinutes) || values.awakeMinutes > max)
-    ) {
-      errors[`${prefix}awakeMinutes`] =
-        `Enter a duration from 0 to ${max} minutes, or leave blank.`;
-    }
     if (values.awakeCount !== null && !known(values.awakeCount))
       errors[`${prefix}awakeCount`] =
         'Enter a whole number of awakenings from 0 to 2147483647, or leave blank.';
     return { ...values, totalSleepMinutes: values.totalSleepMinutes ?? 0 };
   };
+  const readNapTime = (
+    value: string,
+    original: string | null | undefined,
+    field: string,
+  ) => {
+    try {
+      return serializeLocalTime(value, original);
+    } catch (error) {
+      errors[field] = (error as Error).message;
+      return null;
+    }
+  };
   const common = {
     sleepDate: draft.sleepDate,
+    totalScope: draft.totalScope ?? 'legacy-all',
+    measurements: Object.fromEntries(
+      Object.entries(draft.measurements ?? {})
+        .filter(([, v]) => v.trim() !== '')
+        .map(([k, v]) => [k, Number(v)]),
+    ),
     sleepScore: optionalInteger(draft.sleepScore),
     source: draft.source.trim(),
     notes: draft.notes.trim() || null,
@@ -409,6 +424,23 @@ export const validateDraft = (
       ? {
           ...common,
           ...readMeasurements(draft.summary, ''),
+          sessions: draft.sessions.map((session, sortOrder) => ({
+            ...readMeasurements(session, `sessions.${sortOrder}.`),
+            sessionType: session.sessionType,
+            sortOrder,
+            source: session.source || 'manual',
+            label: session.label || null,
+            startedAt: readNapTime(
+              session.startedAt,
+              session.originalStartedAt,
+              `sessions.${sortOrder}.startedAt`,
+            ),
+            endedAt: readNapTime(
+              session.endedAt,
+              session.originalEndedAt,
+              `sessions.${sortOrder}.endedAt`,
+            ),
+          })),
           // Old summary clients cannot accidentally convert a concurrently changed record.
           ...(draft.originalMode === 'sessions' || !draft.id
             ? { detailMode: 'summary' as const }

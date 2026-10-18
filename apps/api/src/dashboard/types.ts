@@ -10,6 +10,7 @@ export interface DashboardLatest {
     pulse: number | null;
   } | null;
   sleep: {
+    source?: string | null;
     sleepDate: string;
     totalSleepMinutes: number;
     sleepScore: number | null;

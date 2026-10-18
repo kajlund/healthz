@@ -208,6 +208,8 @@ describe('sleep session validation and aggregates', () => {
     };
     expect(valuesFromSleepInput(createSleepRecordSchema.parse(old))).toEqual({
       ...old,
+      measurements: {},
+      totalScope: 'legacy-all',
       detailMode: 'summary',
       awakeCount: null,
     });

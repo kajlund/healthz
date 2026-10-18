@@ -5,6 +5,7 @@ export const latestSleepDetail = (
 ) =>
   [
     sleep.sleepDate,
+    ...(sleep.source ? [sleep.source] : []),
     ...(sleep.sleepScore === null ? [] : [`Score ${sleep.sleepScore}`]),
     ...(sleep.awakeCount === null ? [] : [`Times awake: ${sleep.awakeCount}`]),
     ...(sleep.detailMode === 'sessions'

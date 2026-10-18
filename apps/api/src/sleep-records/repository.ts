@@ -40,7 +40,12 @@ const publicRecord = (
   ...row,
   sessions,
   stageCoverage: stageCoverage(
-    row.detailMode === 'sessions' ? sessions : [row],
+    row.detailMode === 'sessions'
+      ? sessions.filter(
+          (s) =>
+            row.totalScope !== 'overnight' || s.sessionType === 'main-sleep',
+        )
+      : [row],
   ),
 });
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -69,7 +74,7 @@ const insertSessions = async (
   row: SleepRow,
   input: SleepRecordInput,
 ) => {
-  if (input.detailMode === 'sessions') {
+  if (input.sessions?.length) {
     await tx
       .insert(sleepSessions)
       .values(
@@ -147,6 +152,11 @@ export const createSleepRecordRepository = (
           .where(eq(sleepRecords.id, id))
           .for('update');
         if (!existing) return undefined;
+        input = updateSleepRecordSchema.parse({
+          ...input,
+          measurements: input.measurements ?? existing.measurements,
+          totalScope: input.totalScope ?? existing.totalScope,
+        });
         if (
           existing.detailMode === 'sessions' &&
           input.detailMode === undefined
@@ -162,6 +172,16 @@ export const createSleepRecordRepository = (
           .set({ ...valuesFromSleepInput(input), updatedAt: new Date() })
           .where(eq(sleepRecords.id, id))
           .returning();
+        if (
+          existing.detailMode === 'summary' &&
+          input.detailMode !== 'sessions' &&
+          input.sessions === undefined
+        ) {
+          return publicRecord(
+            row!,
+            (await loadSessions(tx, [id])).get(id) ?? [],
+          );
+        }
         await tx
           .delete(sleepSessions)
           .where(eq(sleepSessions.sleepRecordId, id));

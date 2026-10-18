@@ -1,4 +1,5 @@
 import { LitElement, html, nothing as litNothing } from 'lit';
+import { sleepMetricDefinitions } from '../../api/src/sleep-records/metrics.js';
 import type { ChartData, ChartOptions, TooltipItem } from 'chart.js';
 import {
   reportsApi,
@@ -426,6 +427,47 @@ export class ReportsPage extends LitElement {
       </ul>
     </details>`;
   }
+  private sleepSourceDetails() {
+    const months =
+      this.view === 'monthly'
+        ? this.months
+        : (this.comparison?.series.flatMap((s) => s.months) ?? []);
+    return html`<details class="report-card">
+      <summary>Sleep measurements by source</summary>
+      <p>
+        Each value is an average of daily recorded values only; entered monthly
+        averages do not override this detail. Devices remain separate, including
+        historical or unknown sources.
+      </p>
+      ${months.map(
+        (month) =>
+          html`<section>
+            <h3>${month.month}</h3>
+            ${Object.entries(month.sleep.scoresBySource ?? {}).map(
+              ([source, score]) =>
+                html`<h4>${source}</h4>
+                  <p>
+                    Sleep score: ${score.value ?? '—'}
+                    (${score.sampleCount ?? 0} recorded)
+                  </p>
+                  ${Object.entries(
+                    month.sleep.measurementsBySource?.[source] ?? {},
+                  )
+                    .filter(([, metric]) => metric.value != null)
+                    .map(([key, metric]) => {
+                      const d = sleepMetricDefinitions.find(
+                        (d) => d.key === key,
+                      );
+                      return html`<p>
+                        ${d?.name ?? key}: ${metric.value} ${d?.unit}
+                        (${metric.sampleCount} recorded)
+                      </p>`;
+                    })}`,
+            )}
+          </section>`,
+      )}
+    </details>`;
+  }
   private monthlyTables() {
     const mapped = (prefix: string) =>
       reportChoices
@@ -543,6 +585,10 @@ export class ReportsPage extends LitElement {
         </div>
         <span class="section-index">06</span>
       </section>
+      <p>
+        Sleep scores are kept separate by device. Historical daily totals retain
+        their original meaning, including naps where originally recorded.
+      </p>
       <section class="report-controls">
         <form @submit=${this.apply}>
           ${
@@ -582,6 +628,7 @@ export class ReportsPage extends LitElement {
         ${this.switcher()}
       </section>
       ${this.error ? html`<div class="error-banner" role="alert"><strong>Unable to load report.</strong><span>${this.error}</span></div>` : nothing}${this.loading ? html`<div class="state"><span class="spinner"></span>Loading report…</div>` : this.view === 'monthly' ? (this.display === 'chart' ? this.monthlyCharts() : this.monthlyTables()) : this.comparisonView()}
+      ${!this.loading ? this.sleepSourceDetails() : nothing}
     </main>`;
   }
 }

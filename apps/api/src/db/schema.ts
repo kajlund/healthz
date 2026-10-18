@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
+  boolean,
+  jsonb,
   check,
   date,
   index,
@@ -97,6 +99,13 @@ export const bloodPressureReadings = pgTable(
   ],
 );
 
+export const sleepMetricSettings = pgTable('sleep_metric_settings', {
+  key: text('key').primaryKey(),
+  enabled: boolean('enabled').notNull(),
+  displayOrder: integer('display_order').notNull(),
+  sources: jsonb('sources').$type<string[]>().default([]).notNull(),
+});
+
 export const sleepRecords = pgTable(
   'sleep_records',
   {
@@ -112,6 +121,13 @@ export const sleepRecords = pgTable(
     deepMinutes: integer('deep_minutes'),
     remMinutes: integer('rem_minutes'),
     sleepScore: integer('sleep_score'),
+    measurements: jsonb('measurements')
+      .$type<import('../sleep-records/metrics.js').ExtraSleepMeasurements>()
+      .default({})
+      .notNull(),
+    totalScope: text('total_scope', { enum: ['legacy-all', 'overnight'] })
+      .default('legacy-all')
+      .notNull(),
     source: text('source').default('manual').notNull(),
     notes: text('notes'),
     createdAt: timestamp('created_at', { withTimezone: true })

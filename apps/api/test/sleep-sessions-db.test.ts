@@ -127,6 +127,22 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== '1')(
           'utf8',
         ),
       );
+      const sourceMigration = await readFile(
+        new URL('../drizzle/0010_source_aware_sleep.sql', import.meta.url),
+        'utf8',
+      );
+      await pool.query(sourceMigration);
+      await pool.query(
+        "UPDATE sleep_metric_settings SET enabled = true WHERE key = 'averageSpo2'",
+      );
+      await pool.query(sourceMigration);
+      expect(
+        (
+          await pool.query(
+            "SELECT enabled FROM sleep_metric_settings WHERE key = 'averageSpo2'",
+          )
+        ).rows[0].enabled,
+      ).toBe(true);
       // A database failure after parent writes and child deletion tests real rollback.
       await pool.query(
         "ALTER TABLE sleep_sessions ADD CONSTRAINT test_reject_label CHECK (label <> 'reject')",
@@ -148,6 +164,62 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== '1')(
       await admin.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
       await admin.end();
     });
+    it('round trips a Garmin summary with optional measurements and a separate manual nap', async () => {
+      const created = await repository.create({
+        ...summary(),
+        source: 'garmin-vivofit-5',
+        totalScope: 'overnight',
+        measurements: { averageSpo2: 97, bodyBatteryChange: 0 },
+        sessions: [
+          {
+            sessionType: 'nap',
+            source: 'manual',
+            label: 'Afternoon',
+            sortOrder: 0,
+            startedAt: '2030-01-01T13:00:00Z',
+            totalSleepMinutes: 30,
+            deepMinutes: 5,
+          },
+        ],
+      });
+      expect(created.totalSleepMinutes).toBe(444);
+      expect(created.deepMinutes).toBe(90);
+      expect(created.sessions[0]).toMatchObject({
+        sessionType: 'nap',
+        totalSleepMinutes: 30,
+        source: 'manual',
+        label: 'Afternoon',
+      });
+      expect(await repository.findById(created.id)).toEqual(created);
+      const updated = await repository.update(created.id, {
+        ...summary(),
+        sleepDate: created.sleepDate,
+        source: created.source,
+        sessions: [
+          {
+            sessionType: 'nap',
+            source: 'manual',
+            label: 'Afternoon',
+            sortOrder: 0,
+            startedAt: '2030-01-01T13:00:00Z',
+            totalSleepMinutes: 30,
+          },
+        ],
+      });
+      expect(updated?.measurements).toEqual({
+        averageSpo2: 97,
+        bodyBatteryChange: 0,
+      });
+      expect(updated?.totalScope).toBe('overnight');
+      const olderClientUpdate = await repository.update(created.id, {
+        ...summary(),
+        sleepDate: created.sleepDate,
+        source: created.source,
+      });
+      expect(olderClientUpdate?.sessions).toHaveLength(1);
+      expect(olderClientUpdate?.measurements).toEqual(created.measurements);
+      await repository.delete(created.id);
+    });
     it('migrates legacy values and timestamps unchanged, without child rows or report changes', async () => {
       const migrated = (
         await pool.query('SELECT * FROM sleep_records WHERE id = $1', [
@@ -156,6 +228,8 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== '1')(
       ).rows[0];
       expect(migrated).toEqual({
         ...legacy,
+        measurements: {},
+        total_scope: 'legacy-all',
         detail_mode: 'summary',
         awake_count: null,
       });
@@ -171,6 +245,7 @@ describe.skipIf(process.env.SLEEP_DATABASE_TESTS !== '1')(
         totalSleepMinutes: 444,
       });
       const old = {
+        source: 'manual',
         sleepDate: '2026-09-15',
         totalSleepMinutes: 444,
         awakeMinutes: 31,

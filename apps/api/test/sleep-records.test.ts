@@ -13,6 +13,8 @@ import type { PapRecordRepository } from '../src/pap-records/repository.js';
 const firstId = '70cd081d-2196-4cf4-b96e-de788420fe28';
 const secondId = 'fef5aa30-bb27-4525-9f66-e12dd16432e0';
 const record = (overrides: Partial<SleepRecord> = {}): SleepRecord => ({
+  measurements: {},
+  totalScope: 'legacy-all',
   id: firstId,
   detailMode: 'summary',
   awakeCount: null,

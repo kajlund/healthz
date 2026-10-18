@@ -19,6 +19,7 @@ import './reports-page.js';
 import './dashboard-page.js';
 import './journal-page.js';
 import './config-page.js';
+import './sleep-settings.js';
 import './styles.css';
 
 type Route =
@@ -30,7 +31,8 @@ type Route =
   | 'report-monthly'
   | 'report-year'
   | 'journal'
-  | 'config';
+  | 'config'
+  | 'config-sleep';
 type Category = 'dashboard' | 'measurements' | 'reports' | 'journal' | 'config';
 
 const navigation: Array<{
@@ -81,7 +83,14 @@ const navigation: Array<{
   {
     category: 'config',
     label: 'Config',
-    items: [{ route: 'config', label: 'Data takeout', hash: '#/config' }],
+    items: [
+      { route: 'config', label: 'Data takeout', hash: '#/config' },
+      {
+        route: 'config-sleep',
+        label: 'Sleep measurements',
+        hash: '#/config/sleep-measurements',
+      },
+    ],
   },
 ];
 export const routeFromHash = (): Route => {
@@ -193,7 +202,7 @@ class HealthzApp extends LitElement {
       ? 'dashboard'
       : this.route === 'journal'
         ? 'journal'
-        : this.route === 'config'
+        : this.route === 'config' || this.route === 'config-sleep'
           ? 'config'
           : this.route.startsWith('report-')
             ? 'reports'
@@ -537,22 +546,24 @@ class HealthzApp extends LitElement {
             ? html`<journal-page></journal-page>`
             : this.route === 'config'
               ? html`<config-page></config-page>`
-              : this.route === 'weight'
-                ? html`<main>
-                    <section class="page-heading">
-                      <div>
-                        <span class="eyebrow">Measurements</span>
-                        <h1>Body weight</h1>
-                        <p>
-                          Keep a clear, consistent record of your weight over
-                          time.
-                        </p>
-                      </div>
-                      <span class="section-index">01</span>
-                    </section>
+              : this.route === 'config-sleep'
+                ? html`<sleep-settings></sleep-settings>`
+                : this.route === 'weight'
+                  ? html`<main>
+                      <section class="page-heading">
+                        <div>
+                          <span class="eyebrow">Measurements</span>
+                          <h1>Body weight</h1>
+                          <p>
+                            Keep a clear, consistent record of your weight over
+                            time.
+                          </p>
+                        </div>
+                        <span class="section-index">01</span>
+                      </section>
 
-                    ${this.renderSummary()}
-                    ${
+                      ${this.renderSummary()}
+                      ${
                       this.error
                         ? html`<div class="error-banner" role="alert">
                             <strong>Something needs attention.</strong
@@ -568,99 +579,102 @@ class HealthzApp extends LitElement {
                         : nothing
                     }
 
-                    <div class="workspace">
-                      <section class="list-card">
-                        <div class="card-heading">
-                          <div>
-                            <span class="eyebrow">History</span>
-                            <h2>Your measurements</h2>
+                      <div class="workspace">
+                        <section class="list-card">
+                          <div class="card-heading">
+                            <div>
+                              <span class="eyebrow">History</span>
+                              <h2>Your measurements</h2>
+                            </div>
+                            <button
+                              class="refresh-button"
+                              type="button"
+                              @click=${this.loadMeasurements}
+                              ?disabled=${this.loading}
+                            >
+                              Refresh
+                            </button>
                           </div>
-                          <button
-                            class="refresh-button"
-                            type="button"
-                            @click=${this.loadMeasurements}
-                            ?disabled=${this.loading}
+                          ${this.renderFilters()} ${this.renderList()}
+                        </section>
+
+                        <aside class="entry-card daily-entry-card">
+                          <span class="eyebrow"
+                            >${this.editingId ? 'Edit entry' : 'New entry'}</span
                           >
-                            Refresh
-                          </button>
-                        </div>
-                        ${this.renderFilters()} ${this.renderList()}
-                      </section>
+                          <h2>
+                            ${this.editingId ? 'Update measurement' : 'Add measurement'}
+                          </h2>
+                          <p>
+                            ${this.editingId ? 'Change the details for this entry.' : 'Record one measurement per day.'}
+                          </p>
 
-                      <aside class="entry-card daily-entry-card">
-                        <span class="eyebrow"
-                          >${this.editingId ? 'Edit entry' : 'New entry'}</span
-                        >
-                        <h2>
-                          ${this.editingId ? 'Update measurement' : 'Add measurement'}
-                        </h2>
-                        <p>
-                          ${this.editingId ? 'Change the details for this entry.' : 'Record one measurement per day.'}
-                        </p>
-
-                        <form class="compact-entry-form" @submit=${this.submit}>
-                          <label
-                            >Date
-                            <span class="required-marker" aria-hidden="true"
-                              >*</span
-                            ><input
-                              type="date"
-                              required
-                              .value=${this.measuredOn}
-                              @input=${(event: InputEvent) => (this.measuredOn = (event.target as HTMLInputElement).value)}
-                          /></label>
-                          <label
-                            >Weight
-                            <span
-                              >kg ·
+                          <form
+                            class="compact-entry-form"
+                            @submit=${this.submit}
+                          >
+                            <label
+                              >Date
                               <span class="required-marker" aria-hidden="true"
                                 >*</span
-                              ></span
-                            >
-                            <div class="weight-input">
-                              <input
-                                type="number"
+                              ><input
+                                type="date"
                                 required
-                                min="0.01"
-                                max="9999.99"
-                                step="0.01"
-                                inputmode="decimal"
-                                placeholder="82.45"
-                                .value=${this.weightKg}
-                                @input=${(event: InputEvent) => (this.weightKg = (event.target as HTMLInputElement).value)}
-                              /><span>kg</span>
-                            </div></label
-                          >
-                          <label
-                            >Notes<textarea
-                              maxlength="2000"
-                              rows="2"
-                              placeholder="Morning, before breakfast…"
-                              .value=${this.notes}
-                              @input=${(event: InputEvent) => (this.notes = (event.target as HTMLTextAreaElement).value)}
-                            ></textarea>
-                          </label>
-                          <button
-                            class="primary-button"
-                            type="submit"
-                            ?disabled=${this.saving}
-                          >
-                            ${this.saving ? 'Saving…' : this.editingId ? 'Save changes' : 'Add measurement'}
-                          </button>
-                          ${this.editingId ? html`<button class="cancel-button" type="button" @click=${this.resetForm}>Cancel editing</button>` : nothing}
-                        </form>
-                      </aside>
-                    </div>
-                  </main>`
-                : this.route === 'blood-pressure'
-                  ? html`<blood-pressure-page></blood-pressure-page>`
-                  : this.route === 'sleep'
-                    ? html`<sleep-page></sleep-page>`
-                    : this.route === 'pap'
-                      ? html`<pap-page></pap-page>`
-                      : html`<reports-page
-                          .view=${this.route === 'report-year' ? 'year' : 'monthly'}
-                        ></reports-page>`
+                                .value=${this.measuredOn}
+                                @input=${(event: InputEvent) => (this.measuredOn = (event.target as HTMLInputElement).value)}
+                            /></label>
+                            <label
+                              >Weight
+                              <span
+                                >kg ·
+                                <span class="required-marker" aria-hidden="true"
+                                  >*</span
+                                ></span
+                              >
+                              <div class="weight-input">
+                                <input
+                                  type="number"
+                                  required
+                                  min="0.01"
+                                  max="9999.99"
+                                  step="0.01"
+                                  inputmode="decimal"
+                                  placeholder="82.45"
+                                  .value=${this.weightKg}
+                                  @input=${(event: InputEvent) => (this.weightKg = (event.target as HTMLInputElement).value)}
+                                /><span>kg</span>
+                              </div></label
+                            >
+                            <label
+                              >Notes<textarea
+                                maxlength="2000"
+                                rows="2"
+                                placeholder="Morning, before breakfast…"
+                                .value=${this.notes}
+                                @input=${(event: InputEvent) => (this.notes = (event.target as HTMLTextAreaElement).value)}
+                              ></textarea>
+                            </label>
+                            <button
+                              class="primary-button"
+                              type="submit"
+                              ?disabled=${this.saving}
+                            >
+                              ${this.saving ? 'Saving…' : this.editingId ? 'Save changes' : 'Add measurement'}
+                            </button>
+                            ${this.editingId ? html`<button class="cancel-button" type="button" @click=${this.resetForm}>Cancel editing</button>` : nothing}
+                          </form>
+                        </aside>
+                      </div>
+                    </main>`
+                  : this.route === 'blood-pressure'
+                    ? html`<blood-pressure-page></blood-pressure-page>`
+                    : this.route === 'sleep'
+                      ? html`<sleep-page></sleep-page>`
+                      : this.route === 'pap'
+                        ? html`<pap-page></pap-page>`
+                        : html`<reports-page
+                            .view=${this.route === 'report-year' ? 'year' : 'monthly'}
+                          ></reports-page>`
       }
 
       <footer><span>Healthz</span><span>Your data, clearly kept.</span></footer>

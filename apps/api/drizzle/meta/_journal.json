@@ -71,6 +71,13 @@
       "when": 1790617525696,
       "tag": "0009_sleep_monthly_averages",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792339963335,
+      "tag": "0010_source_aware_sleep",
+      "breakpoints": true
     }
   ]
 }

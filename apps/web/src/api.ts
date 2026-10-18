@@ -105,6 +105,8 @@ export const bloodPressureReadingsApi = {
 };
 
 export interface SleepRecord {
+  totalScope?: 'legacy-all' | 'overnight';
+  measurements?: import('../../api/src/sleep-records/metrics.js').ExtraSleepMeasurements;
   id: string;
   detailMode: 'summary' | 'sessions';
   awakeCount: number | null;
@@ -147,6 +149,23 @@ export interface SleepSession {
   updatedAt: string;
 }
 
+export const sleepMetricSettingsApi = {
+  list: () =>
+    request<
+      import('../../api/src/sleep-records/metrics.js').SleepMetricDefinition[]
+    >('/api/sleep-metric-settings'),
+  save: (
+    definition: import('../../api/src/sleep-records/metrics.js').SleepMetricDefinition,
+  ) =>
+    request('/api/sleep-metric-settings/' + definition.key, {
+      method: 'PUT',
+      body: JSON.stringify({
+        enabled: definition.enabled,
+        displayOrder: definition.displayOrder,
+        sources: definition.sources,
+      }),
+    }),
+};
 export const sleepRecordsApi = {
   get: (id: string) =>
     request<SleepRecord>(`/api/sleep-records/${encodeURIComponent(id)}`),

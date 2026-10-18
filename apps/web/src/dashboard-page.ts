@@ -322,7 +322,7 @@ export class DashboardPage extends LitElement {
                         },
                       ],
                       '#/measurements/blood-pressure',
-                    )}${this.snapshotCard('Sleep', [{ label: 'Average total sleep', metric: current.sleep.averageTotalSleepMinutes, format: 'duration', source: true }, { label: 'Average score', metric: current.sleep.averageSleepScore, format: 'sleep-score', source: true }, ...(current.sleep.averageAwakeCount.value === null ? [] : [{ label: 'Average times awake', metric: current.sleep.averageAwakeCount, format: 'count' as const, source: true }])], `#/reports/monthly?from=${data.referenceMonth}&to=${data.referenceMonth}`)}${this.snapshotCard(
+                    )}${this.snapshotCard('Sleep', [{ label: 'Average total sleep', metric: current.sleep.averageTotalSleepMinutes, format: 'duration', source: true }, ...Object.entries(current.sleep.scoresBySource ?? {}).map(([source, metric]) => ({ label: 'Average score · ' + source, metric, format: 'sleep-score' as const, source: true })), ...(current.sleep.averageAwakeCount.value === null ? [] : [{ label: 'Average times awake', metric: current.sleep.averageAwakeCount, format: 'count' as const, source: true }])], `#/reports/monthly?from=${data.referenceMonth}&to=${data.referenceMonth}`)}${this.snapshotCard(
                       'PAP',
                       [
                         {

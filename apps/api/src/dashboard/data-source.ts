@@ -41,6 +41,7 @@ export const createDashboardLatestSource = (
           sleepDate: sleepRecords.sleepDate,
           totalSleepMinutes: sleepRecords.totalSleepMinutes,
           sleepScore: sleepRecords.sleepScore,
+          source: sleepRecords.source,
           awakeCount: sleepRecords.awakeCount,
           detailMode: sleepRecords.detailMode,
           sessionCount: sleepSessionCountSql,

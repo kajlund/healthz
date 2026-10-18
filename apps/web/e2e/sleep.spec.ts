@@ -1,3 +1,4 @@
+import { sleepMetricDefinitions } from '../../api/src/sleep-records/metrics.js';
 import { randomUUID } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
@@ -66,7 +67,13 @@ const makeRecord = (
       ...parent,
       sessions,
       stageCoverage: stageCoverage(
-        input.detailMode === 'sessions' ? sessions : [parent],
+        input.detailMode === 'sessions'
+          ? sessions.filter(
+              (s) =>
+                input.totalScope !== 'overnight' ||
+                s.sessionType === 'main-sleep',
+            )
+          : [parent],
       ),
     }),
   ) as SleepRecord;
@@ -83,6 +90,8 @@ const setup = async (
     (url) => url.pathname.startsWith('/api/'),
     async (route) => {
       const req = route.request();
+      if (new URL(req.url()).pathname === '/api/sleep-metric-settings')
+        return route.fulfill({ json: sleepMetricDefinitions });
       if (!new URL(req.url()).pathname.startsWith('/api/sleep-records'))
         return route.fulfill({ json: [] });
       if (req.method() === 'GET') {
@@ -168,7 +177,7 @@ const stages = async (scope: Locator) => {
   await duration(scope, 'REM', '1', '40');
 };
 
-test('direct new URL starts one blank expanded Main sleep in source field order', async ({
+test('direct new URL starts a quick nightly summary with source selection', async ({
   page,
 }) => {
   await setup(page, []);
@@ -176,52 +185,26 @@ test('direct new URL starts one blank expanded Main sleep in source field order'
   await expect(
     page.getByRole('heading', { name: 'Add sleep', exact: true }),
   ).toBeVisible();
-  await expect(page.locator('.sleep-session-card')).toHaveCount(1);
-  await expect(card(page).getByLabel('Session type')).toHaveValue('main-sleep');
+  await expect(page.locator('.sleep-session-card')).toHaveCount(0);
   await expect(
-    card(page).getByLabel('Total sleep hours', { exact: true }),
+    page.getByLabel('Total sleep hours', { exact: true }),
   ).toHaveValue('');
   await expect(
-    card(page).getByLabel('Times awake', { exact: true }),
-  ).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Daily summary' })).toHaveCount(
-    0,
-  );
-  const order = await card(page)
-    .locator('input[data-field]')
-    .evaluateAll((inputs) => [
-      ...new Set(
-        inputs.map((input) =>
-          (input as HTMLElement).dataset.field?.split('.').at(-1),
-        ),
-      ),
-    ]);
-  expect(order).toEqual([
-    'startedAt',
-    'endedAt',
-    'totalSleepMinutes',
-    'deepMinutes',
-    'lightMinutes',
-    'remMinutes',
-    'awakeCount',
-    'awakeMinutes',
-    'label',
-    'source',
-  ]);
-  const daily = page.locator('.sleep-daily-fields input');
-  await expect(daily.nth(0)).toHaveAttribute('type', 'date');
-  await expect(daily.nth(1)).toHaveAttribute('readonly');
-  await expect(daily.nth(2)).toHaveAttribute('data-field', 'sleepScore');
+    page.getByLabel('Nightly measurement source *', { exact: true }),
+  ).toHaveValue('manual');
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect(page).toHaveURL(/#\/measurements\/sleep$/);
 });
 
-test('main sleep plus a duration-only 1 h 7 min nap saves unknown stages and a single daily total', async ({
+test('main sleep plus a manual nap keeps overnight totals and stages separate', async ({
   page,
 }) => {
   const writes = await setup(page, []);
   await page.goto('/#/measurements/sleep?month=2026-09');
   await openNew(page);
+  await page
+    .getByRole('button', { name: 'Enter main sleep as sessions instead' })
+    .click();
   await duration(card(page), 'Total sleep', '7', '0');
   await stages(card(page));
   await card(page).getByLabel('Times awake', { exact: true }).fill('0');
@@ -230,16 +213,15 @@ test('main sleep plus a duration-only 1 h 7 min nap saves unknown stages and a s
   );
   await page.getByRole('button', { name: 'Add another session' }).click();
   await expect(card(page, 1).getByLabel('Session type')).toHaveValue('nap');
-  await expect(card(page, 1).locator('details')).not.toHaveAttribute('open');
+  await expect(card(page, 1).locator('details')).toHaveAttribute('open');
+  await card(page, 1).getByLabel('From time', { exact: true }).fill('13:00');
   await duration(card(page, 1), 'Total sleep', '1', '7');
-  await expect(page.locator('.sleep-daily-total')).toHaveValue('8 h 7 min');
+  await expect(page.locator('.sleep-daily-total')).toHaveValue('7 h 0 min');
   await expect(page.locator('.sleep-preview')).toContainText(
-    'Partial stage data',
+    'Complete stage data',
   );
   await expect(page.locator('.sleep-preview')).toContainText('2 sessions');
-  await expect(page.locator('.sleep-preview')).toContainText(
-    'Some sessions do not include sleep-stage details.',
-  );
+
   await save(page);
   await expect(page).toHaveURL(/#\/measurements\/sleep\?month=2026-09$/);
   const input = writes[0];
@@ -254,11 +236,12 @@ test('main sleep plus a duration-only 1 h 7 min nap saves unknown stages and a s
     deepMinutes: null,
     lightMinutes: null,
     remMinutes: null,
-    startedAt: null,
     endedAt: null,
   });
-  await expect(page.locator('.sleep-total')).toContainText('8 h 7 min');
-  await expect(page.locator('.stage-cell')).toContainText('Partial stage data');
+  await expect(page.locator('.sleep-total')).toContainText('7 h 0 min');
+  await expect(page.locator('.stage-cell')).toContainText(
+    'Complete stage data',
+  );
   await page.getByText('View 2 sessions', { exact: true }).click();
   await expect(
     page.getByText('No stage details', { exact: true }),
@@ -283,7 +266,7 @@ test('existing summary edits preserve format, null and zero, and Cancel makes no
   expect(writes).toHaveLength(0);
   await save(page);
   expect(writes[0]).toMatchObject({ ...summaryInput, awakeCount: null });
-  expect(writes[0]).not.toHaveProperty('sessions');
+  expect(writes[0]?.sessions).toEqual([]);
   await openEdit(page);
   await page.getByLabel('Times awake', { exact: true }).fill('0');
   await save(page);
@@ -300,11 +283,11 @@ test('edit loads by ID on direct navigation and refresh; Back and Forward follow
   const record = makeRecord(stagedInput);
   await setup(page, [makeRecord(summaryInput), record]);
   await page.goto(`/#/measurements/sleep/${record.id}/edit`);
-  await expect(card(page).getByLabel('Label (optional)')).toHaveValue(
+  await expect(card(page).getByLabel('Session notes (optional)')).toHaveValue(
     'Night sleep',
   );
   await page.reload();
-  await expect(card(page).getByLabel('Label (optional)')).toHaveValue(
+  await expect(card(page).getByLabel('Session notes (optional)')).toHaveValue(
     'Night sleep',
   );
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -312,7 +295,7 @@ test('edit loads by ID on direct navigation and refresh; Back and Forward follow
     page.getByRole('heading', { name: 'Your sleep records' }),
   ).toBeVisible();
   await page.goBack();
-  await expect(card(page).getByLabel('Label (optional)')).toHaveValue(
+  await expect(card(page).getByLabel('Session notes (optional)')).toHaveValue(
     'Night sleep',
   );
   await page.goForward();
@@ -329,6 +312,9 @@ test('list query state survives refresh, Cancel and Save; unrelated return URLs 
     '#/measurements/sleep?month=2026-09&source=watch%20%26%20manual&page=2';
   await page.goto(`/${list}`);
   await openNew(page);
+  await page
+    .getByRole('button', { name: 'Enter main sleep as sessions instead' })
+    .click();
   await page.reload();
   await page.getByRole('button', { name: 'Cancel', exact: true }).click();
   await expect.poll(() => new URL(page.url()).hash).toBe(list);
@@ -372,7 +358,9 @@ test('details survive disclosure toggling, complete sessions remain complete, re
   await duration(card(page, 1), 'Total sleep', '1', '7');
   await card(page, 1).getByText('Add details', { exact: true }).click();
   await stages(card(page, 1)); // Stage sums need not equal the reported duration.
-  await card(page, 1).getByLabel('Label (optional)').fill('Afternoon sleep');
+  await card(page, 1)
+    .getByLabel('Session notes (optional)')
+    .fill('Afternoon sleep');
   await card(page, 1).getByLabel('Times awake', { exact: true }).fill('0');
   await card(page, 1).getByText('Add details', { exact: true }).click();
   await expect(card(page, 1).locator('details')).not.toHaveAttribute('open');
@@ -387,7 +375,7 @@ test('details survive disclosure toggling, complete sessions remain complete, re
     .getByRole('button', { name: 'Move session 2 up', exact: true })
     .focus();
   await page.keyboard.press('Enter');
-  await expect(card(page).getByLabel('Label (optional)')).toHaveValue(
+  await expect(card(page).getByLabel('Session notes (optional)')).toHaveValue(
     'Afternoon sleep',
   );
   await save(page);
@@ -414,7 +402,7 @@ test('details survive disclosure toggling, complete sessions remain complete, re
     .getByRole('button', { name: 'Remove session 1', exact: true })
     .click();
   await expect(page.locator('.sleep-session-card')).toHaveCount(1);
-  await expect(card(page).getByLabel('Label (optional)')).toHaveValue(
+  await expect(card(page).getByLabel('Session notes (optional)')).toHaveValue(
     'Night sleep',
   );
   await expect(
@@ -427,10 +415,15 @@ test('cross-midnight local times serialize independently of sleep duration', asy
 }) => {
   const writes = await setup(page, []);
   await openNew(page);
+  await page
+    .getByRole('button', { name: 'Enter main sleep as sessions instead' })
+    .click();
   await page.getByLabel('Sleep date *', { exact: true }).fill('2026-09-16');
   await duration(card(page), 'Total sleep', '7', '0');
-  await card(page).getByLabel('From', { exact: true }).fill('2026-09-15T23:00');
-  await card(page).getByLabel('To', { exact: true }).fill('2026-09-16T07:00');
+  await card(page).getByLabel('From date', { exact: true }).fill('2026-09-15');
+  await card(page).getByLabel('From time', { exact: true }).fill('23:00');
+  await card(page).getByLabel('To date', { exact: true }).fill('2026-09-16');
+  await card(page).getByLabel('To time', { exact: true }).fill('07:00');
   await save(page);
   const input = writes[0];
   if (input?.detailMode !== 'sessions') throw new Error('Expected sessions');
@@ -453,15 +446,17 @@ test('validation reveals collapsed details, preserves values and associates erro
   await card(page, 1).getByText('Add details', { exact: true }).click();
   await card(page, 1).getByLabel('Times awake', { exact: true }).fill('-1');
   await card(page, 1)
-    .getByLabel('From', { exact: true })
-    .fill('2026-09-16T16:00');
-  await card(page, 1)
-    .getByLabel('To', { exact: true })
-    .fill('2026-09-16T15:00');
+    .getByLabel('From date', { exact: true })
+    .fill('2026-09-16');
+  await card(page, 1).getByLabel('From time', { exact: true }).fill('16:00');
+  await card(page, 1).getByLabel('To date', { exact: true }).fill('2026-09-16');
+  await card(page, 1).getByLabel('To time', { exact: true }).fill('15:00');
   await card(page, 1).getByText('Add details', { exact: true }).click();
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(card(page, 1).locator('details')).toHaveAttribute('open');
-  await expect(card(page, 1).getByLabel('To', { exact: true })).toBeFocused();
+  await expect(
+    card(page, 1).getByLabel('To date', { exact: true }),
+  ).toBeFocused();
   await expect(
     card(page, 1).getByLabel('Times awake', { exact: true }),
   ).toHaveAttribute('aria-describedby', 'sleep-error-sessions.1.awakeCount');
@@ -504,7 +499,7 @@ test('API errors keep drafts, repeated Save is guarded, and server values reach 
   );
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('already exists');
-  await expect(card(page).getByLabel('Label (optional)')).toHaveValue(
+  await expect(card(page).getByLabel('Session notes (optional)')).toHaveValue(
     'Night sleep',
   );
   let release!: () => void;

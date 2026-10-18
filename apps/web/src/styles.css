@@ -360,6 +360,16 @@ h2 {
 .sleep-grid {
   grid-template-columns: 1fr 1fr 1.8fr 0.75fr auto;
 }
+
+.sleep-page .summary > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.sleep-page select {
+  min-width: 0;
+  max-width: 100%;
+}
 .sleep-total,
 .stage-cell,
 .source-cell {
@@ -2755,6 +2765,202 @@ record-actions {
   color: inherit;
   font-size: 24px;
   cursor: pointer;
+}
+.sleep-settings-page {
+  width: min(1120px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 44px 0 80px;
+}
+.sleep-settings-panel {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+}
+.sleep-settings-intro {
+  padding: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.sleep-settings-intro h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.sleep-settings-intro p {
+  max-width: 78ch;
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.sleep-settings-notice {
+  margin: 0;
+  padding: 0 24px;
+  color: var(--accent);
+  font-size: 13px;
+}
+.sleep-settings-notice:not(:empty) {
+  padding-block: 14px;
+}
+.sleep-settings-columns,
+.sleep-setting-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1fr) 72px minmax(290px, 1.5fr) 64px;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 24px;
+}
+.sleep-settings-columns {
+  padding-block: 12px;
+  background: #f0f4ef;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.sleep-setting-row {
+  border-top: 1px solid var(--line);
+}
+.sleep-setting-row:first-of-type {
+  border-top: 0;
+}
+.sleep-setting-row > * {
+  min-width: 0;
+}
+.sleep-settings-page .sleep-setting-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 32px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.sleep-settings-page .sleep-setting-name {
+  font-size: 14px;
+  font-weight: 650;
+}
+.sleep-setting-name small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.sleep-settings-page
+  .sleep-settings-panel
+  .sleep-setting-row
+  .sleep-setting-checkbox
+  > input[type='checkbox'] {
+  appearance: auto;
+  display: inline-block;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.sleep-setting-order > .field-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.sleep-settings-page .sleep-setting-order > input {
+  height: 36px;
+  margin: 0;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.sleep-setting-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 16px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.sleep-setting-sources legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.sleep-settings-page .sleep-setting-save {
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 1px solid #bfd2c3;
+  border-radius: 7px;
+  background: white;
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 650;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.sleep-settings-page .sleep-setting-save:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--soft);
+}
+.sleep-settings-page .sleep-setting-save:disabled {
+  opacity: 0.55;
+}
+.sleep-settings-page input[type='checkbox']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  box-shadow: none;
+}
+@media (max-width: 820px) {
+  .sleep-settings-columns {
+    display: none;
+  }
+  .sleep-setting-row {
+    grid-template-columns: minmax(0, 1fr) 72px;
+    gap: 14px 20px;
+  }
+  .sleep-setting-order > .field-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .sleep-setting-sources {
+    grid-column: 1 / -1;
+  }
+  .sleep-setting-sources legend {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    margin-bottom: 6px;
+    color: var(--muted);
+    font-size: 11px;
+  }
+  .sleep-setting-save {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+@media (max-width: 480px) {
+  .sleep-settings-page {
+    width: calc(100% - 28px);
+    padding-top: 28px;
+  }
+  .sleep-settings-intro,
+  .sleep-setting-row {
+    padding: 18px 16px;
+  }
 }
 .config-page {
   width: min(1240px, calc(100% - 48px));

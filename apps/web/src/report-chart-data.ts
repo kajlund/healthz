@@ -1,3 +1,4 @@
+import { sleepSources } from '../../api/src/sleep-records/metrics.js';
 import type { ChartData, ChartDataset } from 'chart.js';
 import type { MonthlyReport, ReportMetric, YearReportResponse } from './api.js';
 import { localizedMonth, type ReportFormat } from './report-format.js';
@@ -69,12 +70,12 @@ export const reportChoices: MetricChoice[] = [
     format: 'duration',
     get: (r) => r.sleep.averageRemMinutes,
   },
-  {
-    key: 'sleep-score',
-    label: 'Sleep score',
-    format: 'sleep-score',
-    get: (r) => r.sleep.averageSleepScore,
-  },
+  ...sleepSources.map((source) => ({
+    key: 'sleep-score-' + source.key,
+    label: 'Sleep score · ' + source.label,
+    format: 'sleep-score' as const,
+    get: (r: MonthlyReport) => r.sleep.scoresBySource?.[source.key] ?? null,
+  })),
   {
     key: 'pap-usage',
     label: 'Usage',

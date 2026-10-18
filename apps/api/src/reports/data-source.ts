@@ -74,6 +74,8 @@ export const createReportingDataSource = (
             deepMinutes: sleepRecords.deepMinutes,
             remMinutes: sleepRecords.remMinutes,
             sleepScore: sleepRecords.sleepScore,
+            source: sleepRecords.source,
+            measurements: sleepRecords.measurements,
           })
           .from(sleepRecords)
           .where(dateConditions(sleepRecords.sleepDate)),

@@ -1,3 +1,10 @@
+import {
+  sleepMetricDefinitions,
+  sleepSources,
+  canonicalSleepSource,
+  type SleepMetricDefinition,
+} from '../../api/src/sleep-records/metrics.js';
+import { sleepMetricSettingsApi } from './api.js';
 import { LitElement, html, nothing } from 'lit';
 import { repeat } from 'lit/directives/repeat.js';
 import { sleepRecordsApi, type SleepRecord, type SleepSession } from './api.js';
@@ -67,7 +74,18 @@ export class SleepPage extends LitElement {
   declare private route: SleepRoute;
   declare private filter: DateFilter;
   declare private draftFilter: DateFilter;
+  private definitions: SleepMetricDefinition[] = sleepMetricDefinitions;
   private loadVersion = 0;
+  private applicable(key: string, source = this.draft.source) {
+    const d = this.definitions.find((d) => d.key === key);
+    return (
+      !!d?.enabled &&
+      (!d.sources.length || d.sources.includes(canonicalSleepSource(source)))
+    );
+  }
+  private sourceOptions(value: string, inherit = false) {
+    return html`${inherit ? html`<option value="">Use nightly measurement source</option>` : nothing}${sleepSources.map((s) => html`<option value=${s.key} ?selected=${s.key === value}>${s.label}</option>`)}${value && !sleepSources.some((s) => s.key === value) ? html`<option value=${value} selected>${value} (existing source)</option>` : nothing}`;
+  }
   declare private notice: string;
   private readonly timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -91,6 +109,16 @@ export class SleepPage extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     window.addEventListener('hashchange', this.handleRouteChange);
+    void sleepMetricSettingsApi
+      .list()
+      .then((d) => {
+        this.definitions = d;
+        this.requestUpdate();
+      })
+      .catch(() => {
+        this.error =
+          'Unable to load sleep measurement settings. Reload before editing.';
+      });
     void this.loadRoute();
   }
   disconnectedCallback() {
@@ -167,8 +195,8 @@ export class SleepPage extends LitElement {
       const toDate = value;
       let sessions =
         fromDate && toDate
-          ? this.draft.sessions.map((session, index) => {
-              if (index === 0 || session.sessionType === 'main-sleep') {
+          ? this.draft.sessions.map((session) => {
+              if (session.sessionType === 'main-sleep') {
                 const startTime = session.startedAt.includes('T')
                   ? session.startedAt.slice(session.startedAt.indexOf('T'))
                   : 'T23:00';
@@ -205,7 +233,7 @@ export class SleepPage extends LitElement {
     this.notice = '';
   }
   private setSummary(
-    key: DurationKey | 'awakeCount' | 'awakeMinutes',
+    key: DurationKey | 'awakeCount',
     value: DurationDraft | string,
   ) {
     this.draft = {
@@ -269,14 +297,22 @@ export class SleepPage extends LitElement {
       this.clearError(`sessions.${index}.endedAt`);
   }
   private async addSession() {
-    const sessionType = this.draft.sessions.length ? 'nap' : 'main-sleep';
+    const sessionType =
+      this.draft.detailMode === 'summary' || this.draft.sessions.length
+        ? 'nap'
+        : 'main-sleep';
     const session = newSession(sessionType);
+    if (sessionType === 'nap') {
+      session.source = 'manual';
+      session.detailsOpen = this.draft.totalScope === 'overnight';
+    }
     if (!this.draft.id && sessionType === 'main-sleep') {
       const toDate = firstSessionToDate(this.draft);
       Object.assign(session, defaultMainSleepTimes(toDate));
     } else {
-      session.startedAt = this.draft.sleepDate;
-      session.endedAt = this.draft.sleepDate;
+      session.startedAt =
+        this.draft.totalScope === 'overnight' ? this.draft.sleepDate : '';
+      session.endedAt = '';
     }
     this.draft = { ...this.draft, sessions: [...this.draft.sessions, session] };
     this.errors = {};
@@ -303,14 +339,15 @@ export class SleepPage extends LitElement {
       session.startedAt,
       session.endedAt,
       session.awakeCount,
-      session.awakeMinutes,
+      ...Object.values(session.awakeMinutes),
       ...Object.values(session.totalSleepMinutes),
       ...Object.values(session.deepMinutes),
       ...Object.values(session.lightMinutes),
       ...Object.values(session.remMinutes),
     ].some((value) => value !== '');
     if (
-      this.draft.sessions.length === 1 ||
+      (this.draft.detailMode === 'sessions' &&
+        this.draft.sessions.length === 1) ||
       (populated &&
         !window.confirm(
           `Remove session ${index + 1} (${typeLabels[session.sessionType]}) and its entered values?`,
@@ -319,10 +356,10 @@ export class SleepPage extends LitElement {
       return;
     this.draft = {
       ...this.draft,
-      sessions: removeSession(
-        this.draft.sessions,
-        this.draft.sessions[index]!.key,
-      ),
+      sessions:
+        this.draft.detailMode === 'summary'
+          ? this.draft.sessions.filter((s) => s.key !== session.key)
+          : removeSession(this.draft.sessions, this.draft.sessions[index]!.key),
     };
     this.errors = {};
     this.notice = `Session ${index + 1} removed. Changes are not saved yet.`;
@@ -491,48 +528,60 @@ export class SleepPage extends LitElement {
   }
   private awakeDurationInput(
     row: MeasurementsDraft,
-    set: (value: string) => void,
+    set: (value: DurationDraft) => void,
     prefix = '',
   ) {
-    const field = `${prefix}awakeMinutes`;
-    return html`<label
-      >Total time awake <span>min</span
-      ><input
-        aria-label="Total time awake"
-        type="number"
-        min="0"
-        max=${this.draft.detailMode === 'summary' ? 1440 : 2147483647}
-        step="1"
-        inputmode="numeric"
-        placeholder="min"
-        .value=${row.awakeMinutes}
-        data-field=${field}
-        aria-invalid=${this.errors[field] ? 'true' : 'false'}
-        aria-describedby=${this.errors[field] ? `sleep-error-${field}` : nothing}
-        @input=${(event: InputEvent) => set((event.target as HTMLInputElement).value)}
-      />${this.fieldError(field)}</label
-    >`;
+    return this.durationInput(
+      'Total time awake',
+      'awakeMinutes',
+      row,
+      set,
+      prefix,
+    );
   }
   private optionalMeasurements(
     row: MeasurementsDraft,
     set: (
-      key: DurationKey | 'awakeCount' | 'awakeMinutes',
+      key: DurationKey | 'awakeCount',
       value: DurationDraft | string,
     ) => void,
     prefix = '',
+    source = this.draft.source,
   ) {
     return html`<div class="sleep-stage-fields sleep-fields-grid">
-        ${this.durationInput('Deep', 'deepMinutes', row, (value) => set('deepMinutes', value as DurationDraft), prefix)}
-        ${this.durationInput('Light', 'lightMinutes', row, (value) => set('lightMinutes', value as DurationDraft), prefix)}
-        ${this.durationInput('REM', 'remMinutes', row, (value) => set('remMinutes', value as DurationDraft), prefix)}
-      </div>
-      <fieldset class="sleep-awake-fields">
-        <legend>Awake</legend>
-        <div class="sleep-fields-grid">
-          ${this.awakeInput(row, (value) => set('awakeCount', value), prefix)}
-          ${this.awakeDurationInput(row, (value) => set('awakeMinutes', value), prefix)}
-        </div>
-      </fieldset>`;
+      ${this.definitions
+        .filter((d) => this.applicable(d.key, source))
+        .map((d) => {
+          switch (d.key) {
+            case 'deepMinutes':
+            case 'lightMinutes':
+            case 'remMinutes': {
+              const key = d.key;
+              return this.durationInput(
+                d.name,
+                key,
+                row,
+                (value) => set(key, value),
+                prefix,
+              );
+            }
+            case 'awakeCount':
+              return this.awakeInput(
+                row,
+                (value) => set('awakeCount', value),
+                prefix,
+              );
+            case 'awakeMinutes':
+              return this.awakeDurationInput(
+                row,
+                (value) => set('awakeMinutes', value),
+                prefix,
+              );
+            default:
+              return nothing;
+          }
+        })}
+    </div>`;
   }
   private updateSessionDate(
     index: number,
@@ -608,20 +657,25 @@ export class SleepPage extends LitElement {
   }
   private sessionMetadata(session: SessionDraft, index: number) {
     return html`<div class="sleep-fields-grid">
-      ${(['label', 'source'] as const).map(
-        (key) =>
-          html`<label
-            >${key === 'label' ? 'Label (optional)' : 'Source (optional)'}
-            <input
-              maxlength="200"
-              .value=${session[key]}
-              data-field=${`sessions.${index}.${key}`}
-              aria-invalid=${this.errors[`sessions.${index}.${key}`] ? 'true' : 'false'}
-              aria-describedby=${this.errors[`sessions.${index}.${key}`] ? `sleep-error-sessions.${index}.${key}` : nothing}
-              @input=${(event: InputEvent) => this.setSession(index, { [key]: (event.target as HTMLInputElement).value }, key)}
-            />${this.fieldError(`sessions.${index}.${key}`)}</label
-          >`,
-      )}
+      <label
+        >Session notes (optional)<input
+          maxlength="200"
+          .value=${session.label}
+          @input=${(e: Event) => this.setSession(index, { label: (e.target as HTMLInputElement).value })} /></label
+      ><label
+        >Session source<select
+          aria-label="Session source"
+          .value=${session.source}
+          @change=${(e: Event) => this.setSession(index, { source: (e.target as HTMLSelectElement).value })}
+        >
+          ${this.sourceOptions(session.source, true)}
+        </select></label
+      >
+      <p class="sleep-help">
+        Session notes describe this session only. Session source identifies who
+        recorded it; leave it inherited when it matches the nightly measurement
+        source.
+      </p>
     </div>`;
   }
   private renderSession(session: SessionDraft, index: number) {
@@ -646,6 +700,7 @@ export class SleepPage extends LitElement {
       session,
       (key, value) => this.setSession(index, { [key]: value }, key),
       prefix,
+      session.source || this.draft.source,
     );
     return html`<section
       class="sleep-session-card"
@@ -658,13 +713,14 @@ export class SleepPage extends LitElement {
       </h3>
       <label class="sleep-session-type"
         >Session type<select
+          aria-label="Session type"
           id=${`${session.key}-type`}
           .value=${session.sessionType}
           @change=${(event: Event) => this.setSession(index, { sessionType: (event.target as HTMLSelectElement).value as SessionDraft['sessionType'] })}
         >
-          <option value="main-sleep">Main sleep</option>
+          ${this.draft.detailMode === 'sessions' ? html`<option value="main-sleep">Main sleep</option>` : nothing}
           <option value="nap">Nap</option>
-          <option value="other">Other</option>
+          ${this.draft.detailMode === 'sessions' ? html`<option value="other">Other</option>` : nothing}
         </select></label
       >
       ${
@@ -710,7 +766,7 @@ export class SleepPage extends LitElement {
         <button
           type="button"
           class="text-button danger"
-          ?disabled=${this.draft.sessions.length === 1}
+          ?disabled=${this.draft.detailMode === 'sessions' && this.draft.sessions.length === 1}
           aria-label=${`Remove session ${index + 1}`}
           @click=${() => this.deleteSession(index)}
         >
@@ -720,7 +776,10 @@ export class SleepPage extends LitElement {
     </section>`;
   }
   private renderPreview() {
-    const preview = previewSessions(this.draft.sessions);
+    const preview = previewSessions(
+      this.draft.sessions,
+      this.draft.totalScope === 'overnight',
+    );
     return html`<section
       class="sleep-preview"
       aria-label="Daily sleep overview"
@@ -811,7 +870,7 @@ export class SleepPage extends LitElement {
     }
     return html`<div class="measurement-list">
       <div class="list-head sleep-grid" aria-hidden="true">
-        <span>Sleep date</span><span>Total sleep</span><span>Stages</span
+        <span>Sleep date</span><span>Overnight sleep</span><span>Stages</span
         ><span>Score & source</span><span>Actions</span>
       </div>
       ${repeat(
@@ -826,7 +885,8 @@ export class SleepPage extends LitElement {
             </div>
             <div class="sleep-total">
               <span class="mobile-label">Total sleep</span
-              ><strong>${formatDuration(record.totalSleepMinutes)}</strong>
+              ><strong>${formatDuration(record.totalSleepMinutes)}</strong
+              >${record.totalScope !== 'overnight' ? html`<small>Historical daily total (may include naps)</small>` : nothing}
               ${record.awakeCount !== null ? html`<small>Times awake: ${record.awakeCount}</small>` : nothing}
               ${record.awakeMinutes !== null ? html`<small>Total time awake: ${formatDuration(record.awakeMinutes)}</small>` : nothing}
             </div>
@@ -838,7 +898,14 @@ export class SleepPage extends LitElement {
             <div class="source-cell">
               <span class="mobile-label">Score & source</span
               ><strong>${record.sleepScore ?? '—'}</strong
-              ><small>${record.source}</small>
+              ><small>${record.source}</small>${Object.entries(
+                record.measurements ?? {},
+              ).map(([key, value]) => {
+                const d = sleepMetricDefinitions.find((d) => d.key === key);
+                return html`<small
+                  >${d?.name ?? key}: ${value} ${d?.unit ?? ''}</small
+                >`;
+              })}
             </div>
             <div class="actions">
               <record-actions
@@ -850,7 +917,7 @@ export class SleepPage extends LitElement {
               ></record-actions>
             </div>
             ${
-              record.detailMode === 'sessions'
+              record.sessions.length
                 ? html`<details class="sleep-session-history">
                     <summary>
                       View ${record.sessions.length}
@@ -869,7 +936,10 @@ export class SleepPage extends LitElement {
   }
   private renderEditor() {
     const draft = this.draft;
-    const preview = previewSessions(draft.sessions);
+    const preview = previewSessions(
+      draft.sessions,
+      draft.totalScope === 'overnight',
+    );
     return html`<main class="sleep-page sleep-editor-page">
       <section class="page-heading">
         <div>
@@ -927,20 +997,46 @@ export class SleepPage extends LitElement {
                                 aria-describedby="sleep-total-help"
                             /></label>`
                       }
-                      <label
-                        >Sleep score (0–100)<input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="1"
-                          .value=${draft.sleepScore}
-                          data-field="sleepScore"
-                          aria-invalid=${this.errors.sleepScore ? 'true' : 'false'}
-                          aria-describedby=${this.errors.sleepScore ? 'sleep-error-sleepScore' : nothing}
-                          @input=${(event: InputEvent) => this.setField('sleepScore', (event.target as HTMLInputElement).value)}
-                        />${this.fieldError('sleepScore')}</label
-                      >
+                      ${
+                        this.applicable('sleepScore')
+                          ? html`<label
+                              >Sleep score (0–100)<input
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="1"
+                                .value=${draft.sleepScore}
+                                data-field="sleepScore"
+                                aria-invalid=${this.errors.sleepScore ? 'true' : 'false'}
+                                aria-describedby=${this.errors.sleepScore ? 'sleep-error-sleepScore' : nothing}
+                                @input=${(event: InputEvent) => this.setField('sleepScore', (event.target as HTMLInputElement).value)}
+                              />${this.fieldError('sleepScore')}</label
+                            >`
+                          : nothing
+                      }
                     </div>
+                    ${
+                      !draft.id && draft.detailMode === 'summary'
+                        ? html`<button
+                            type="button"
+                            @click=${() => {
+                              this.draft = {
+                                ...draft,
+                                detailMode: 'sessions',
+                                sessions: [
+                                  {
+                                    ...newSession(),
+                                    ...draft.summary,
+                                    ...defaultMainSleepTimes(draft.sleepDate),
+                                  },
+                                ],
+                              };
+                            }}
+                          >
+                            Enter main sleep as sessions instead
+                          </button>`
+                        : nothing
+                    }
                     <p id="sleep-date-help" class="sleep-help">
                       Choose the sleep day, usually the date your main sleep
                       ended. Session times will not change this date.
@@ -952,8 +1048,8 @@ export class SleepPage extends LitElement {
                             (key, value) => this.setSummary(key, value),
                           )
                         : html` <p id="sleep-total-help" class="sleep-help">
-                              Total sleep is calculated from all session
-                              durations.
+                              Overnight sleep is calculated from main sleep
+                              sessions. Naps stay separate.
                             </p>
                             ${this.renderPreview()}
                             <h2 class="sleep-sessions-heading">
@@ -984,18 +1080,57 @@ export class SleepPage extends LitElement {
                             </button>`
                     }
                     <div class="sleep-fields-grid">
+                      ${this.definitions
+                        .filter(
+                          (d) =>
+                            ![
+                              'deepMinutes',
+                              'lightMinutes',
+                              'remMinutes',
+                              'awakeMinutes',
+                              'awakeCount',
+                              'sleepScore',
+                            ].includes(d.key) && this.applicable(d.key),
+                        )
+                        .map(
+                          (d) =>
+                            html`<label
+                              >${d.name} (${d.unit})<input
+                                type="number"
+                                step=${d.type === 'integer' ? '1' : 'any'}
+                                .value=${draft.measurements?.[d.key] ?? ''}
+                                data-field=${'measurements.' + d.key}
+                                aria-invalid=${this.errors['measurements.' + d.key] ? 'true' : 'false'}
+                                aria-describedby=${this.errors['measurements.' + d.key] ? 'sleep-error-measurements.' + d.key : nothing}
+                                @input=${(e: Event) => {
+                                  this.clearError('measurements.' + d.key);
+                                  this.draft = {
+                                    ...draft,
+                                    measurements: {
+                                      ...draft.measurements,
+                                      [d.key]: (e.target as HTMLInputElement)
+                                        .value,
+                                    },
+                                  };
+                                }}
+                              />${this.fieldError('measurements.' + d.key)}</label
+                            >`,
+                        )}
                       <label
-                        >Source *<input
+                        >Nightly measurement source *<select
+                          aria-label="Nightly measurement source *"
                           maxlength="200"
                           .value=${draft.source}
                           data-field="source"
                           aria-invalid=${this.errors.source ? 'true' : 'false'}
                           aria-describedby=${this.errors.source ? 'sleep-error-source' : nothing}
                           @input=${(event: InputEvent) => this.setField('source', (event.target as HTMLInputElement).value)}
-                        />${this.fieldError('source')}</label
+                        >
+                          ${this.sourceOptions(draft.source)}</select
+                        >${this.fieldError('source')}</label
                       >
                       <label
-                        >Notes<textarea
+                        >Nightly notes (optional)<textarea
                           maxlength="2000"
                           rows="2"
                           .value=${draft.notes}
@@ -1003,6 +1138,27 @@ export class SleepPage extends LitElement {
                         ></textarea>
                       </label>
                     </div>
+                    <p class="sleep-help">
+                      Nightly notes apply to the whole night. The nightly
+                      measurement source identifies the provider of the nightly
+                      measurements and sleep score.
+                    </p>
+                    ${
+                      draft.detailMode === 'summary'
+                        ? html`<h2>Naps</h2>
+                            <p class="sleep-help">
+                              Naps are separate from overnight totals and
+                              stages.
+                            </p>
+                            ${repeat(
+                              draft.sessions,
+                              (s) => s.key,
+                              (s, i) => this.renderSession(s, i),
+                            )}<button type="button" @click=${this.addSession}>
+                              Add nap
+                            </button>`
+                        : nothing
+                    }
                     <div class="sleep-editor-actions">
                       <button class="primary-button" type="submit">
                         ${this.saving ? 'Saving…' : 'Save'}
@@ -1044,7 +1200,8 @@ export class SleepPage extends LitElement {
         </div>
         <div>
           <span class="eyebrow">Latest score</span
-          ><strong>${latest?.sleepScore ?? '—'}</strong>
+          ><strong>${latest?.sleepScore ?? '—'}</strong
+          ><small>${latest?.source ?? ''}</small>
         </div>
         <div>
           <span class="eyebrow">Sleep records</span

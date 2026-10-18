@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { extraSleepMeasurementsSchema } from './metrics.js';
 
 const dateOnly = z
   .string()
@@ -59,6 +60,8 @@ export const sleepSessionSchema = z
 
 const common = {
   sleepDate: dateOnly,
+  totalScope: z.enum(['legacy-all', 'overnight']).optional(),
+  measurements: extraSleepMeasurementsSchema.optional(),
   sleepScore: z.number().int().min(0).max(100).nullable().optional(),
   source: z.string().trim().min(1).max(200),
   notes: optionalNotes,
@@ -77,7 +80,14 @@ const summarySchema = z
     lightMinutes: duration,
     deepMinutes: duration,
     remMinutes: duration,
-    sessions: z.array(sleepSessionSchema).max(0).optional(),
+    sessions: z
+      .array(
+        sleepSessionSchema.refine(
+          (s) => s.sessionType === 'nap' && !!s.startedAt,
+          'Summary sessions must be naps with a start date/time',
+        ),
+      )
+      .optional(),
   })
   .strict();
 const sessionsSchema = z
@@ -87,7 +97,25 @@ const sessionsSchema = z
     sessions: z.array(sleepSessionSchema).min(1),
   })
   .strict()
-  .superRefine(({ sessions }, context) => {
+  .superRefine(({ sessions, totalScope }, context) => {
+    if (
+      totalScope === 'overnight' &&
+      !sessions.some((s) => s.sessionType === 'main-sleep')
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Add main sleep or use a nightly summary',
+        path: ['sessions'],
+      });
+    if (totalScope === 'overnight')
+      for (const [index, session] of sessions.entries()) {
+        if (session.sessionType === 'nap' && !session.startedAt)
+          context.addIssue({
+            code: 'custom',
+            message: 'Enter the nap start date and time',
+            path: ['sessions', index, 'startedAt'],
+          });
+      }
     for (const key of [
       'totalSleepMinutes',
       'awakeMinutes',

@@ -34,6 +34,8 @@ export interface SleepReport {
   averageDeepMinutes: ReportMetric;
   averageRemMinutes: ReportMetric;
   averageSleepScore: ReportMetric;
+  scoresBySource?: Record<string, ReportMetric>;
+  measurementsBySource?: Record<string, Record<string, ReportMetric>>;
   stageCoverage: SleepStageCoverage;
 }
 export interface PapReport {
@@ -80,6 +82,8 @@ export interface ReportData {
     deepMinutes: number | null;
     remMinutes: number | null;
     sleepScore: number | null;
+    source?: string | null;
+    measurements?: import('../sleep-records/metrics.js').ExtraSleepMeasurements;
   }>;
   papRecords: Array<{
     therapyDate: string;

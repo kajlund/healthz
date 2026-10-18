@@ -25,7 +25,12 @@ export const stageCoverage = (rows: Stages[]): StageCoverage => {
     : 'none';
 };
 
-export const aggregateSessions = (sessions: SleepSessionInput[]) => {
+export const aggregateSessions = (
+  sessions: SleepSessionInput[],
+  overnight = false,
+) => {
+  if (overnight)
+    sessions = sessions.filter((s) => s.sessionType === 'main-sleep');
   if (!sessions.length)
     throw new Error('At least one sleep session is required');
   const sumWhenComplete = (key: OptionalMeasurement) =>
@@ -47,9 +52,11 @@ export const aggregateSessions = (sessions: SleepSessionInput[]) => {
 
 export const valuesFromSleepInput = (input: SleepRecordInput) => ({
   sleepDate: input.sleepDate,
+  measurements: input.measurements ?? {},
+  totalScope: input.totalScope ?? 'legacy-all',
   detailMode: input.detailMode ?? 'summary',
   ...(input.detailMode === 'sessions'
-    ? aggregateSessions(input.sessions)
+    ? aggregateSessions(input.sessions, input.totalScope === 'overnight')
     : {
         totalSleepMinutes: input.totalSleepMinutes,
         awakeMinutes: input.awakeMinutes ?? null,
