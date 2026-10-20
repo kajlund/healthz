@@ -582,6 +582,8 @@ test('record actions support keyboard navigation, dismissal and only one open me
   await expect(page.getByRole('menuitem', { name: 'Delete' })).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('menu')).toHaveCount(0);
+  await expect(page.getByText('Details').first()).toBeFocused();
+  await page.keyboard.press('Tab');
   await expect(triggers.nth(1)).toBeFocused();
   await first.click();
   await expect(
@@ -735,3 +737,47 @@ for (const viewport of [
     });
   });
 }
+
+test('sleep records list displays compact score, source and deep/rem stages, with expandable more info', async ({
+  page,
+}) => {
+  const record = makeRecord({
+    sleepDate: '2026-09-16',
+    totalSleepMinutes: 444,
+    awakeMinutes: 18,
+    lightMinutes: 240,
+    deepMinutes: 100,
+    remMinutes: 104,
+    source: 'garmin-watch',
+    sleepScore: 88,
+    notes: 'Well-rested morning',
+  });
+  record.measurements = {
+    restingHeartRate: 58,
+    averageSpo2: 97,
+  };
+  await setup(page, [record]);
+  await page.goto('/#/measurements/sleep?month=2026-09');
+
+  const sourceCell = page.locator('.source-cell');
+  await expect(sourceCell).toContainText('88');
+  await expect(sourceCell).toContainText('garmin-watch');
+  await expect(sourceCell).not.toContainText('Resting heart rate');
+  await expect(sourceCell).not.toContainText('58');
+
+  const stageCell = page.locator('.stage-cell');
+  await expect(stageCell).toContainText('Complete stage data');
+  await expect(stageCell).toContainText('Deep 1 h 40 min');
+  await expect(stageCell).toContainText('REM 1 h 44 min');
+  await expect(stageCell).not.toContainText('Light');
+
+  const moreInfo = page.locator('.sleep-more-info');
+  await expect(moreInfo).toBeVisible();
+  await expect(page.getByText('Light sleep: 4 h 0 min')).not.toBeVisible();
+
+  await page.getByText('Details').click();
+  await expect(moreInfo).toContainText('Light sleep: 4 h 0 min');
+  await expect(moreInfo).toContainText('Resting heart rate: 58 bpm');
+  await expect(moreInfo).toContainText('Average SpO₂: 97 %');
+  await expect(moreInfo).toContainText('Well-rested morning');
+});

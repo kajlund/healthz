@@ -892,20 +892,13 @@ export class SleepPage extends LitElement {
             </div>
             <div class="stage-cell">
               <strong>${coverageLabels[record.stageCoverage]}</strong>
-              ${(['lightMinutes', 'deepMinutes', 'remMinutes'] as const).map((key, index) => (record[key] === null ? nothing : html`<span>${['Light', 'Deep', 'REM'][index]} ${formatDuration(record[key]!)}</span>`))}
-              ${record.detailMode === 'sessions' && record.stageCoverage === 'partial' ? html`<small>Some sessions have incomplete stages; missing daily totals are not available.</small>` : nothing}
+              ${record.deepMinutes !== null ? html`<span>Deep ${formatDuration(record.deepMinutes)}</span>` : nothing}
+              ${record.remMinutes !== null ? html`<span>REM ${formatDuration(record.remMinutes)}</span>` : nothing}
             </div>
             <div class="source-cell">
-              <span class="mobile-label">Score & source</span
-              ><strong>${record.sleepScore ?? '—'}</strong
-              ><small>${record.source}</small>${Object.entries(
-                record.measurements ?? {},
-              ).map(([key, value]) => {
-                const d = sleepMetricDefinitions.find((d) => d.key === key);
-                return html`<small
-                  >${d?.name ?? key}: ${value} ${d?.unit ?? ''}</small
-                >`;
-              })}
+              <span class="mobile-label">Score & source</span>
+              <strong>${record.sleepScore ?? '—'}</strong>
+              <small>${record.source}</small>
             </div>
             <div class="actions">
               <record-actions
@@ -916,6 +909,7 @@ export class SleepPage extends LitElement {
                 @delete-request=${() => this.deleteRecord(record)}
               ></record-actions>
             </div>
+            ${this.renderMoreInfo(record)}
             ${
               record.sessions.length
                 ? html`<details class="sleep-session-history">
@@ -933,6 +927,68 @@ export class SleepPage extends LitElement {
           </article>`,
       )}
     </div>`;
+  }
+  private hasMoreInfo(record: SleepRecord): boolean {
+    return Boolean(
+      record.lightMinutes !== null ||
+        (record.measurements && Object.keys(record.measurements).length > 0) ||
+        (record.notes && record.notes.trim().length > 0) ||
+        (record.detailMode === 'sessions' && record.stageCoverage === 'partial'),
+    );
+  }
+  private renderMoreInfo(record: SleepRecord) {
+    if (!this.hasMoreInfo(record)) return nothing;
+    const hasMetrics =
+      record.lightMinutes !== null ||
+      Boolean(
+        record.measurements && Object.keys(record.measurements).length > 0,
+      );
+    return html`<details class="sleep-more-info description-preview">
+      <summary>Details</summary>
+      <div class="sleep-more-info-body">
+        ${
+          hasMetrics
+            ? html`<div class="sleep-more-info-grid">
+                ${record.lightMinutes !== null
+                  ? html`<span class="sleep-more-info-item"
+                      >Light sleep:
+                      <strong
+                        >${formatDuration(record.lightMinutes)}</strong
+                      ></span
+                    >`
+                  : nothing}
+                ${Object.entries(record.measurements ?? {}).map(
+                  ([key, value]) => {
+                    const d = sleepMetricDefinitions.find((m) => m.key === key);
+                    return html`<span class="sleep-more-info-item"
+                      >${d?.name ?? key}:
+                      <strong
+                        >${value}${d?.unit ? ` ${d.unit}` : ''}</strong
+                      ></span
+                    >`;
+                  },
+                )}
+              </div>`
+            : nothing
+        }
+        ${
+          record.detailMode === 'sessions' && record.stageCoverage === 'partial'
+            ? html`<small class="sleep-more-info-warning"
+                >Some sessions have incomplete stages; missing daily totals are
+                not available.</small
+              >`
+            : nothing
+        }
+        ${
+          record.notes && record.notes.trim().length > 0
+            ? html`<div class="sleep-more-info-notes">
+                <strong>Notes</strong>
+                <p>${record.notes}</p>
+              </div>`
+            : nothing
+        }
+      </div>
+    </details>`;
   }
   private renderEditor() {
     const draft = this.draft;
