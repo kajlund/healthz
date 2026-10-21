@@ -564,20 +564,20 @@ class HealthzApp extends LitElement {
 
                       ${this.renderSummary()}
                       ${
-                      this.error
-                        ? html`<div class="error-banner" role="alert">
-                            <strong>Something needs attention.</strong
-                            ><span>${this.error}</span
-                            ><button
-                              type="button"
-                              @click=${() => (this.error = null)}
-                              aria-label="Dismiss error"
-                            >
-                              ×
-                            </button>
-                          </div>`
-                        : nothing
-                    }
+                        this.error
+                          ? html`<div class="error-banner" role="alert">
+                              <strong>Something needs attention.</strong
+                              ><span>${this.error}</span
+                              ><button
+                                type="button"
+                                @click=${() => (this.error = null)}
+                                aria-label="Dismiss error"
+                              >
+                                ×
+                              </button>
+                            </div>`
+                          : nothing
+                      }
 
                       <div class="workspace">
                         <section class="list-card">

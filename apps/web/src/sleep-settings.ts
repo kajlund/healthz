@@ -89,41 +89,41 @@ export class SleepSettings extends LitElement {
           ><span>Applicable sources</span><span></span>
         </div>
         ${this.definitions.map(
-        (d) =>
-          html`<form
-            class="sleep-setting-row"
-            aria-label=${d.name + ' preferences'}
-            @submit=${(e: Event) => {
+          (d) =>
+            html`<form
+              class="sleep-setting-row"
+              aria-label=${d.name + ' preferences'}
+              @submit=${(e: Event) => {
               e.preventDefault();
               void this.save(d);
             }}
-          >
-            <label class="sleep-setting-checkbox sleep-setting-name"
-              ><input
-                type="checkbox"
-                .checked=${d.enabled}
-                @change=${(e: Event) => {
+            >
+              <label class="sleep-setting-checkbox sleep-setting-name"
+                ><input
+                  type="checkbox"
+                  .checked=${d.enabled}
+                  @change=${(e: Event) => {
                   d.enabled = (e.target as HTMLInputElement).checked;
                 }}
-              /><span class="field-label"
-                >${d.name} <small>(${d.unit})</small></span
-              ></label
-            >
-            <label class="sleep-setting-order"
-              ><span class="field-label">Order</span
-              ><input
-                type="number"
-                min="0"
-                max="1000"
-                required
-                .value=${String(d.displayOrder)}
-                @input=${(e: Event) => {
+                /><span class="field-label"
+                  >${d.name} <small>(${d.unit})</small></span
+                ></label
+              >
+              <label class="sleep-setting-order"
+                ><span class="field-label">Order</span
+                ><input
+                  type="number"
+                  min="0"
+                  max="1000"
+                  required
+                  .value=${String(d.displayOrder)}
+                  @input=${(e: Event) => {
                   d.displayOrder = Number((e.target as HTMLInputElement).value);
                 }}
-            /></label>
-            <fieldset class="sleep-setting-sources">
-              <legend>Applicable sources</legend>
-              ${sleepSources.map(
+              /></label>
+              <fieldset class="sleep-setting-sources">
+                <legend>Applicable sources</legend>
+                ${sleepSources.map(
                 (s) =>
                   html`<label class="sleep-setting-checkbox"
                     ><input
@@ -137,16 +137,16 @@ export class SleepSettings extends LitElement {
                     />${s.label}</label
                   >`,
               )}
-            </fieldset>
-            <button
-              class="secondary-button sleep-setting-save"
-              aria-label=${'Save ' + d.name}
-              ?disabled=${this.saving}
-            >
-              Save
-            </button>
-          </form>`,
-      )}
+              </fieldset>
+              <button
+                class="secondary-button sleep-setting-save"
+                aria-label=${'Save ' + d.name}
+                ?disabled=${this.saving}
+              >
+                Save
+              </button>
+            </form>`,
+        )}
       </section>
     </main>`;
   }

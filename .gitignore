@@ -1,11 +1,34 @@
 node_modules
 dist
-.env
+.env*
+!.env.example
 coverage
 test-results
 playwright-report
 *.log
 .vite
-data/*
+data/
+imports/
+exports/
+backups/
+reports/
+# Private device exports and database copies. Keep synthetic fixtures in test directories.
+*.csv
+*.tsv
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+*.dump
+*.backup
+*.bak
+!apps/**/test/fixtures/**/*.csv
+!apps/**/test/fixtures/**/*.tsv
+*.tsbuildinfo
+.artifacts/
+.cache/
+.compiled/
 
 .verification/

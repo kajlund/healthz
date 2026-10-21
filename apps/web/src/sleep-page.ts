@@ -931,9 +931,9 @@ export class SleepPage extends LitElement {
   private hasMoreInfo(record: SleepRecord): boolean {
     return Boolean(
       record.lightMinutes !== null ||
-        (record.measurements && Object.keys(record.measurements).length > 0) ||
-        (record.notes && record.notes.trim().length > 0) ||
-        (record.detailMode === 'sessions' && record.stageCoverage === 'partial'),
+      (record.measurements && Object.keys(record.measurements).length > 0) ||
+      (record.notes && record.notes.trim().length > 0) ||
+      (record.detailMode === 'sessions' && record.stageCoverage === 'partial'),
     );
   }
   private renderMoreInfo(record: SleepRecord) {
@@ -949,14 +949,16 @@ export class SleepPage extends LitElement {
         ${
           hasMetrics
             ? html`<div class="sleep-more-info-grid">
-                ${record.lightMinutes !== null
-                  ? html`<span class="sleep-more-info-item"
-                      >Light sleep:
-                      <strong
-                        >${formatDuration(record.lightMinutes)}</strong
-                      ></span
-                    >`
-                  : nothing}
+                ${
+                  record.lightMinutes !== null
+                    ? html`<span class="sleep-more-info-item"
+                        >Light sleep:
+                        <strong
+                          >${formatDuration(record.lightMinutes)}</strong
+                        ></span
+                      >`
+                    : nothing
+                }
                 ${Object.entries(record.measurements ?? {}).map(
                   ([key, value]) => {
                     const d = sleepMetricDefinitions.find((m) => m.key === key);

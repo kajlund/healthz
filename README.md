@@ -9,17 +9,17 @@ The npm workspace layout matches the other Dreamquest apps:
 - `tsconfig.base.json`: shared TypeScript settings.
 - Root `package.json` and `package-lock.json`: commands and dependency installation for both workspaces.
 
-Keep `.env` and local import files in the repository root. API configuration and Vite both load the root `.env`; shell/service environment variables take precedence. Existing `PORT`, `DATABASE_URL`, `NODE_ENV`, and `LOG_LEVEL` settings continue to work.
+Keep `.env` in the repository root and private import/export files under ignored `data/`. API configuration and Vite both load the root `.env`; shell/service environment variables take precedence. Existing `PORT`, `DATABASE_URL`, `NODE_ENV`, and `LOG_LEVEL` settings continue to work. Never put credentials in browser-facing `VITE_*` variables.
 
 ## Requirements
 
-- Node.js 22 or newer
+- DreamQuest target: Node.js 24 LTS (`.nvmrc`). Compatibility verification is pending because local npm execution is blocked; existing `>=22` engine metadata is retained temporarily and does not establish tested support for future majors.
 - npm
 - PostgreSQL
 
 ## Local setup
 
-1. Run `npm install`.
+1. Select Node 24 and run `npm ci --include=dev` using the committed root lockfile.
 2. Copy `.env.example` to `.env` and update `DATABASE_URL` for your PostgreSQL database.
 3. Apply the database migrations with `npm run db:migrate`.
 4. Run `npm run dev`.
@@ -36,15 +36,23 @@ The root route is the Dashboard. Its optional browser-local reference month is s
 - `npm run build` - build the API into `apps/api/dist/` and frontend into `apps/web/dist/`
 - `npm start` - serve the production API and built frontend
 - `npm run verify:start` - check the compiled root start command, `/health`, frontend, and bundled assets using a dummy database URL
-- `npm test` - run tests
+- `npm test` - run both workspaces' Vitest suites once; missing workspace test scripts fail
 - `npm run test:browser` - run Sleep UI tests in installed Google Chrome with synthetic API responses
 - `npm run typecheck` - check TypeScript without emitting files
+- `npm run check` - run typecheck, lint, then tests; stop on first failure
+- `npm run lint` - validate ESLint with zero warnings allowed
+- `npm run format` - apply Prettier; prefer targeting changed files to avoid unrelated rewrites
+- `npm run format:check` - check formatting separately from check/build
 - `npm run db:generate` - generate migrations after schema changes
 - `npm run db:migrate` - apply generated migrations
 - `npm run db:seed:healthcare-tags` - idempotently create the optional initial Journal tags
 - `npm run import:history -- <pap|ohealth> <file> <--dry-run|--apply>` - safely import historical PAP or staged OHealth sleep data
 
 ## Historical imports
+
+These tools read sensitive files and may query the configured database even in dry-run mode. Do not use production records for repository validation. Keep inputs, generated review CSVs, journals, JSON exports and backups under ignored private directories (`data/`, `imports/`, `exports/`, `backups/`, `reports/`). Ignore rules cannot protect arbitrary JSON/PDF/SQL filenames elsewhere or already tracked files; review staging carefully. Preserve intentional synthetic test fixtures.
+
+Blood-pressure import is `npm run import:blood-pressure -- ./data/example.csv` (dry-run by default); adding `--apply` writes records. Review results and back up the target database before applying any import. There is no general backup import/export command.
 
 Always run a dry-run first:
 
@@ -139,6 +147,10 @@ Example request body for create and update:
 ```
 
 ## Production
+
+The external `../../deploy.ps1 Healthz` workflow (relative to this repository) and `../../deploy.apps.json` currently archive the checkout, install/build in remote staging, prune development dependencies, activate the release and restart systemd service `healthz`, with health checking and directory rollback. Configured locations are `/srv/storage/apps/healthz` and `/etc/healthz/healthz.env`; the probe is `http://127.0.0.1:5005/health`. These are local configuration evidence, not live-server verification. Confirm the actual unit command/working directory, Node runtime, environment, backup and migration procedure before deployment.
+
+The archive exclusions do not exclude private `data/`, imports, backups or reports. Git ignore rules do not control archive contents. Review packaging from a clean checkout before deployment; deployment scripts were not changed. Ensure the remote build shell installs development dependencies. Run migrations explicitly with development tooling available before pruning; startup and this deployment script do not run them. Retain all Drizzle SQL and metadata, and back up the database before applying migrations.
 
 Run deployment commands from the repository root. Build with development tools
 installed, then remove them if desired and start Express:
@@ -418,7 +430,7 @@ The legacy Sleep API/database value `detailMode: "summary"` denotes measurements
 
 ## Linting and formatting
 
-All Dreamquest projects use the same ESLint and Prettier configuration, based on Activus. Run these commands from the repository root:
+Healthz uses the DreamQuest ESLint and Prettier conventions, with Node globals for API/tooling and browser globals for frontend source. Run these commands from the repository root:
 
 ```sh
 npm run lint
@@ -428,3 +440,11 @@ npm run format:check
 ```
 
 ESLint checks supported JavaScript and TypeScript files and treats warnings as failures. Prettier formats its supported source, configuration, and documentation files with single quotes, trailing commas, and LF line endings. Dependencies, generated builds and test output, local data, editor settings, archived artifacts, and dependency lockfiles are excluded. SQL and Nunjucks templates are outside the installed tools' supported file types.
+
+## Environment and testing
+
+`.env.example` documents `NODE_ENV` (development/test/production; default development), `PORT` (default 3000), required `DATABASE_URL`, and `LOG_LEVEL` (default info). Use a dedicated development database; do not commit real environment files. Root lint/format tools and workspace TypeScript/Vite require development dependencies for validation/builds.
+
+Vitest discovers `apps/api/test/**/*.test.ts` and `apps/web/test/**/*.test.ts`. Ordinary suites use synthetic inputs and mocked repositories. Three API database suites are gated by `SLEEP_DATABASE_TESTS=1` and use `DATABASE_URL`, including one testing removal of obsolete tables in an isolated schema. Leave this flag unset for normal checks. Enable it only with an explicitly configured disposable test database, never production; the existing gate does not validate that the URL is disposable. No database suite was run during standardization.
+
+Playwright runs separately with installed Google Chrome and a Vite server on loopback port 4175, using synthetic API responses. `npm run verify:start` is a separate post-build smoke check using a dummy database URL. See [the standardization report](docs/dreamquest-standardization.md) for verification limitations and remaining decisions.

@@ -18,9 +18,10 @@
     "build:api": "npm run build -w @healthz/api",
     "build:web": "npm run build -w @healthz/web",
     "start": "npm start -w @healthz/api",
-    "test": "npm test --workspaces --if-present",
+    "test": "npm test --workspaces",
     "test:browser": "npm run test:browser -w @healthz/web --",
-    "typecheck": "npm run typecheck --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces",
+    "check": "npm run typecheck && npm run lint && npm test",
     "verify:start": "node scripts/verify-start.mjs",
     "db:generate": "npm run db:generate -w @healthz/api --",
     "db:migrate": "npm run db:migrate -w @healthz/api --",
@@ -33,12 +34,12 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "concurrently": "^10.0.5",
     "@eslint/js": "10.0.1",
+    "concurrently": "^10.0.5",
     "eslint": "10.10.0",
     "eslint-config-prettier": "10.1.8",
+    "globals": "14.0.0",
     "prettier": "3.9.6",
-    "typescript-eslint": "8.69.0",
-    "globals": "14.0.0"
+    "typescript-eslint": "8.69.0"
   }
 }

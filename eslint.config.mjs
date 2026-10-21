@@ -21,12 +21,15 @@ export default tseslint.config(
       '**/.cache/**',
       '**/.vite/**',
       '**/data/**',
+      '**/imports/**',
+      '**/exports/**',
+      '**/backups/**',
+      '**/reports/**',
     ],
   },
   js.configs.recommended,
   tseslint.configs.recommended,
   {
-    languageOptions: { globals: { ...globals.node, ...globals.browser } },
     rules: {
       '@typescript-eslint/no-unused-vars': [
         'error',
@@ -37,6 +40,22 @@ export default tseslint.config(
         },
       ],
     },
+  },
+  {
+    files: [
+      'apps/api/**/*.{js,mjs,cjs,ts}',
+      'scripts/**/*.{js,mjs,cjs}',
+      '**/*.config.{js,mjs,cjs,ts}',
+    ],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['apps/web/src/**/*.{js,ts}'],
+    languageOptions: { globals: globals.browser },
+  },
+  {
+    files: ['apps/web/test/**/*.ts', 'apps/web/e2e/**/*.ts'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
   prettier,
 );
