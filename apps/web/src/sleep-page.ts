@@ -1039,23 +1039,6 @@ export class SleepPage extends LitElement {
                         />${this.fieldError('sleepDate')}</label
                       >
                       ${
-                        draft.detailMode === 'summary'
-                          ? this.durationInput(
-                              'Total sleep',
-                              'totalSleepMinutes',
-                              draft.summary,
-                              (value) =>
-                                this.setSummary('totalSleepMinutes', value),
-                            )
-                          : html` <label
-                              >Total sleep<input
-                                class="sleep-daily-total"
-                                readonly
-                                .value=${preview.totalSleepMinutes === null ? 'Enter session durations' : formatDuration(preview.totalSleepMinutes)}
-                                aria-describedby="sleep-total-help"
-                            /></label>`
-                      }
-                      ${
                         this.applicable('sleepScore')
                           ? html`<label
                               >Sleep score (0–100)<input
@@ -1071,6 +1054,23 @@ export class SleepPage extends LitElement {
                               />${this.fieldError('sleepScore')}</label
                             >`
                           : nothing
+                      }
+                      ${
+                        draft.detailMode === 'summary'
+                          ? this.durationInput(
+                              'Duration',
+                              'totalSleepMinutes',
+                              draft.summary,
+                              (value) =>
+                                this.setSummary('totalSleepMinutes', value),
+                            )
+                          : html` <label
+                              >Total sleep<input
+                                class="sleep-daily-total"
+                                readonly
+                                .value=${preview.totalSleepMinutes === null ? 'Enter session durations' : formatDuration(preview.totalSleepMinutes)}
+                                aria-describedby="sleep-total-help"
+                            /></label>`
                       }
                     </div>
                     ${

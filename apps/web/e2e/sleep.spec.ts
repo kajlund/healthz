@@ -187,7 +187,17 @@ test('direct new URL starts a quick nightly summary with source selection', asyn
   ).toBeVisible();
   await expect(page.locator('.sleep-session-card')).toHaveCount(0);
   await expect(
-    page.getByLabel('Total sleep hours', { exact: true }),
+    page
+      .locator('.sleep-daily-fields > :is(label, fieldset)')
+      .evaluateAll((els) =>
+        els.map(
+          (el) =>
+            (el.querySelector('legend') ?? el).childNodes[0]?.textContent?.trim(),
+        ),
+      ),
+  ).resolves.toEqual(['Sleep date *', 'Sleep score (0–100)', 'Duration *']);
+  await expect(
+    page.getByLabel('Duration hours', { exact: true }),
   ).toHaveValue('');
   await expect(
     page.getByLabel('Nightly measurement source *', { exact: true }),
@@ -256,7 +266,7 @@ test('existing summary edits preserve format, null and zero, and Cancel makes no
   await openEdit(page);
   await expect(page.locator('.sleep-session-card')).toHaveCount(0);
   await expect(
-    page.getByLabel('Total sleep minutes', { exact: true }),
+    page.getByLabel('Duration minutes', { exact: true }),
   ).toHaveValue('24');
   await expect(page.getByLabel('Times awake', { exact: true })).toHaveValue('');
   await page.getByLabel('Times awake', { exact: true }).fill('9');

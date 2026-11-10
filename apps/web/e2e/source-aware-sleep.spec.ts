@@ -170,7 +170,7 @@ test('Garmin summary keeps optional blanks and manual naps separate through edit
     .selectOption('garmin-vivofit-5');
   await expect(page.getByLabel('Average SpO₂ (%)')).toBeVisible();
   await expect(page.getByLabel('Deep hours', { exact: true })).toHaveCount(0);
-  await page.getByLabel('Total sleep hours', { exact: true }).fill('7');
+  await page.getByLabel('Duration hours', { exact: true }).fill('7');
   await page.getByLabel('Total time awake hours', { exact: true }).fill('1');
   await page.getByLabel('Total time awake minutes', { exact: true }).fill('15');
   await page
